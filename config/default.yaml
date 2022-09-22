@@ -1,0 +1,39 @@
+# Dimensions of the final video
+width: 512
+height: 512
+# Frame rate of the final video
+frames_per_second: 18
+
+scenes:
+  - # The prompt to generate images from
+    prompt: asd
+    # How long this prompt should last at the frame rate specified above
+    duration: 46s
+    # Interpolation between the previous and this scene
+    interpolation: 0s
+    # Which mechanism to use to generate frames. Must be defined with parameters and type below
+    mechanism: default
+    # Optionally, some parameters of a mechanism may be modified at the scene-level. For example the number of steps to sample for in a diffusion model.
+    mechanism_parameters:
+      steps: 50
+
+mechanisms:
+  - # Name of this parameter set within the config. Can be referenced in scenes
+    name: default
+    # Name of the mechanism to use
+    type: turbo-stablediff
+    # Arbitrary parameters the text2video mechanism can take. These are always implementation specific
+    mechanism_parameters:
+      # Sampling steps per frame
+      steps: 20
+      # Type of sampler
+      sampler: klms
+      # Unconditional guidance scale
+      scale: 7
+      # Type of animation to apply between frames, if any
+      animation: 3D
+      # Parameters for the animation
+      animation_parameters:
+        transform_x: 0
+        transform_y: 0
+        transform_z: 1
