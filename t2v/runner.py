@@ -20,19 +20,26 @@ class Runner:
         self.mechanisms = {}
         # TODO: resume runs must determine the frame, t-offset and scene offset here
         self.t = float(0)
+        self.frame = 0
+        # TODO: ensure/create output dir
 
     def run(self):
         logging.debug(f"Launching with config:\n{OmegaConf.to_yaml(self.cfg)}")
         for scene in self.cfg.scenes:
-            self.handle_scene(scene)
+            self.handle_scene(scene, self.t)
 
-    def handle_scene(self, scene: Scene):
+    def handle_scene(self, scene: Scene, offset):
         mechanism_name = scene.mechanism
         if self.mechanisms.get(mechanism_name) is None:
             mechanism = self._init_mechanism(mechanism_name)
         else:
             mechanism = self.mechanisms[mechanism_name]
-
+        mechanism_context = None
+        while (self.t - offset) < scene.duration:
+            frame, context = mechanism.generate(scene.mechanism_parameters, mechanism_context, scene.prompt)
+            # TODO: write frame to disk
+            self.frame = self.frame + 1
+            self.t = (self.frame / self.cfg.frames_per_second)
 
     def _init_mechanism(self, mechanism_name):
         # instantiate the mechanism

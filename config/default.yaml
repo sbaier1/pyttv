@@ -4,6 +4,9 @@ height: 512
 # Frame rate of the final video
 frames_per_second: 18
 
+# Path for output frames and other files
+output_path: generated/
+
 scenes:
   - # The prompt to generate images from
     prompt: asd
@@ -24,6 +27,10 @@ mechanisms:
     type: turbo-stablediff
     # Arbitrary parameters the text2video mechanism can take. These are always implementation specific
     mechanism_parameters:
+      # Model to use
+      model_path: /path/to/model
+      # Config for the model to use
+      model_config_path: /path/to/config.yaml
       # Sampling steps per frame
       steps: 20
       # Type of sampler
@@ -37,3 +44,8 @@ mechanisms:
         transform_x: 0
         transform_y: 0
         transform_z: 1
+
+# TODO: later: handle remaining tasks also:
+# - upscaling?
+# - video encoding?
+# - interpolation?

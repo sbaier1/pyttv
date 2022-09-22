@@ -9,3 +9,4 @@ class Scene:
     duration: str
     interpolation: str
     mechanism: str
+    mechanism_parameters: DictConfig
