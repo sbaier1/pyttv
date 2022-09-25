@@ -30,27 +30,27 @@ def sampler_fn(
         else torch.device("cuda"),
         cb: Callable[[Any], None] = None,
 ) -> torch.Tensor:
-    shape = [args.C, args.H // args.f, args.W // args.f]
-    sigmas: torch.Tensor = model_wrap.get_sigmas(args.steps)
+    shape = [args["C"], args["H"] // args["f"], args["W"] // args["f"]]
+    sigmas: torch.Tensor = model_wrap.get_sigmas(args["steps"])
     sigmas = sigmas[len(sigmas) - t_enc - 1:]
-    if args.use_init:
+    if args["use_init"]:
         if len(sigmas) > 0:
             x = (
                     init_latent
-                    + torch.randn([args.n_samples, *shape], device=device) * sigmas[0]
+                    + torch.randn([args["n_samples"], *shape], device=device) * sigmas[0]
             )
         else:
             x = init_latent
     else:
         if len(sigmas) > 0:
-            x = torch.randn([args.n_samples, *shape], device=device) * sigmas[0]
+            x = torch.randn([args["n_samples"], *shape], device=device) * sigmas[0]
         else:
-            x = torch.zeros([args.n_samples, *shape], device=device)
+            x = torch.zeros([args["n_samples"], *shape], device=device)
     sampler_args = {
         "model": CFGDenoiser(model_wrap),
         "x": x,
         "sigmas": sigmas,
-        "extra_args": {"cond": c, "uncond": uc, "cond_scale": args.scale},
+        "extra_args": {"cond": c, "uncond": uc, "cond_scale": args["scale"]},
         "disable": False,
         "callback": cb,
     }
@@ -63,5 +63,5 @@ def sampler_fn(
         "euler_ancestral": sampling.sample_euler_ancestral,
     }
 
-    samples = sampler_map[args.sampler](**sampler_args)
+    samples = sampler_map[args["sampler"]](**sampler_args)
     return samples

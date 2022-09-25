@@ -41,13 +41,14 @@ class Runner:
             scene_idx = 0
             for scene in cfg.scenes:
                 scene_duration_seconds = parse_time(scene.duration).seconds
-                if scene_duration_seconds < self.t + t_buffer:
+                if scene_duration_seconds > self.t + t_buffer:
                     # This is the scene we're resuming
                     break
                 else:
                     t_buffer = t_buffer + scene_duration_seconds
                     scene_idx = scene_idx + 1
             self.scene_offset = scene_idx
+            # TODO load the last frame as init?
         else:
             self.frame = 0
             self.t = float(0)

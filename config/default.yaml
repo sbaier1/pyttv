@@ -72,9 +72,9 @@ mechanisms:
       animation: 3D
       # Parameters for the animation
       animation_parameters:
-        transform_x: 0
-        transform_y: 0
-        transform_z: 1
+        translation_x: 0
+        translation_y: 0
+        translation_z: 1
         # depth model parameters
         near_plane: 20
         far_plane: 10000

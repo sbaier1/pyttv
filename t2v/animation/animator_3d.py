@@ -1,4 +1,6 @@
+import logging
 import math
+import os
 import sys
 
 import torch
@@ -41,19 +43,20 @@ class Animator3D(Animator):
 
         TRANSLATION_SCALE = 1.0 / 200.0  # matches Disco
         extra_state = {}
-        if self.audio_parser is not None:
+        if hasattr(self, 'audio_parser') and self.audio_parser is not None:
             params = self.audio_parser.get_params(t)
             extra_state.update(params)
         translate_xyz = [
-            self.func_tool.parametric_eval(context["translation_x"], t, **extra_state) * TRANSLATION_SCALE,
+            -self.func_tool.parametric_eval(context["translation_x"], t, **extra_state) * TRANSLATION_SCALE,
             self.func_tool.parametric_eval(context["translation_y"], t, **extra_state) * TRANSLATION_SCALE,
-            self.func_tool.parametric_eval(context["translation_z"], t, **extra_state) * TRANSLATION_SCALE
+            -self.func_tool.parametric_eval(context["translation_z"], t, **extra_state) * TRANSLATION_SCALE
         ]
         rotate_xyz = [
             # FIXME no-op for now, not encoded yet
             0, 0, 0
         ]
         rot_mat = p3d.euler_angles_to_matrix(torch.tensor(rotate_xyz, device=self.device), "XYZ").unsqueeze(0)
+        logging.debug(f"Applying 3D transform with translate mat {translate_xyz}, rotate mat {rotate_xyz}")
         result = self.transform_image_3d(frame, depth, rot_mat, translate_xyz, context)
         torch.cuda.empty_cache()
 

@@ -6,8 +6,9 @@
     <envs>
       <env name="PYTHONUNBUFFERED" value="1" />
       <env name="PYTORCH_ENABLE_MPS_FALLBACK" value="1" />
+      <env name="LOG_LEVEL" value="DEBUG" />
     </envs>
-    <option name="SDK_HOME" value="$USER_HOME$/miniconda3/envs/ldm/bin/python" />
+    <option name="SDK_HOME" value="" />
     <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
     <option name="IS_MODULE_SDK" value="true" />
     <option name="ADD_CONTENT_ROOTS" value="true" />

@@ -331,19 +331,20 @@ class TurboStableDiffUtils:
         if "init_latent" in args:
             init_latent = args["init_latent"]
         elif "init_sample" in args is not None:
-            #with precision_scope("cuda"):
+            with precision_scope("cuda"):
                 init_latent = self.model.get_first_stage_encoding(self.model.encode_first_stage(args["init_sample"]))
-        elif args["use_init"] and args["init_image"] != None and args["init_image"] != '':
+        elif args["use_init"] and args["init_image"] is not None and args["init_image"] != '':
             init_image, mask_image = load_img(args["init_image"],
                                               shape=(args["W"], args["H"]),
-                                              use_alpha_as_mask=args["use_alpha_as_mask"])
+                                              use_alpha_as_mask=args["use_alpha_as_mask"] if hasattr(args,
+                                                                                                     "use_alpha_as_mask") else False)
             init_image = init_image.to(self.device)
             init_image = repeat(init_image, '1 ... -> b ...', b=batch_size)
-            #with precision_scope("cuda"):
-            init_latent = self.model.get_first_stage_encoding(
-                self.model.encode_first_stage(init_image))  # move to latent space
+            with precision_scope("cuda"):
+                init_latent = self.model.get_first_stage_encoding(
+                    self.model.encode_first_stage(init_image))  # move to latent space
 
-        if not args["use_init"] and args["strength"] > 0 and args["strength_0_no_init"]:
+        if not args["use_init"] and args["strength"] > 0:
             print("\nNo init image, but strength > 0. Strength has been auto set to 0, since use_init is False.")
             print("If you want to force strength > 0 with no init, please set strength_0_no_init to False.\n")
             args["strength"] = 0
@@ -390,76 +391,76 @@ class TurboStableDiffUtils:
         results = []
         with torch.no_grad():
             # TODO conditional precision scope
-            # with precision_scope("cuda"):
-            with self.model.ema_scope():
-                for prompts in data:
-                    uc = None
-                    if args["scale"] != 1.0:
-                        uc = self.model.get_learned_conditioning(batch_size * [""])
-                    if isinstance(prompts, tuple):
-                        prompts = list(prompts)
-                    c = self.model.get_learned_conditioning(prompts)
+            with precision_scope("cuda"):
+                with self.model.ema_scope():
+                    for prompts in data:
+                        uc = None
+                        if args["scale"] != 1.0:
+                            uc = self.model.get_learned_conditioning(batch_size * [""])
+                        if isinstance(prompts, tuple):
+                            prompts = list(prompts)
+                        c = self.model.get_learned_conditioning(prompts)
 
-                    if "init_c" in args:
-                        c = args["init_c"]
+                        if "init_c" in args:
+                            c = args["init_c"]
 
-                    if args["sampler"] in ["klms", "dpm2", "dpm2_ancestral", "heun", "euler", "euler_ancestral"]:
-                        samples = sampler_fn(
-                            c=c,
-                            uc=uc,
-                            args=args,
-                            model_wrap=model_wrap,
-                            init_latent=init_latent,
-                            t_enc=t_enc,
-                            device=self.device,
-                            cb=callback)
-                    else:
-                        # args["sampler"] == 'plms' or args["sampler"] == 'ddim':
-                        if init_latent is not None and args["strength"] > 0:
-                            z_enc = sampler.stochastic_encode(init_latent,
-                                                              torch.tensor([t_enc] * batch_size).to(self.device))
+                        if args["sampler"] in ["klms", "dpm2", "dpm2_ancestral", "heun", "euler", "euler_ancestral"]:
+                            samples = sampler_fn(
+                                c=c,
+                                uc=uc,
+                                args=args,
+                                model_wrap=model_wrap,
+                                init_latent=init_latent,
+                                t_enc=t_enc,
+                                device=self.device,
+                                cb=callback)
                         else:
-                            z_enc = torch.randn(
-                                [args["n_samples"], args["C"], args["H"] // args["f"], args["W"] // args["f"]],
-                                device=self.device)
-                        if args["sampler"] == 'ddim':
-                            samples = sampler.decode(z_enc,
-                                                     c,
-                                                     t_enc,
-                                                     unconditional_guidance_scale=args["scale"],
-                                                     unconditional_conditioning=uc,
-                                                     img_callback=callback)
-                        elif args["sampler"] == 'plms':  # no "decode" function in plms, so use "sample"
-                            shape = [args["C"], args["H"] // args["f"], args["W"] // args["f"]]
-                            samples, _ = sampler.sample(S=args["steps"],
-                                                        conditioning=c,
-                                                        batch_size=args["n_samples"],
-                                                        shape=shape,
-                                                        verbose=False,
-                                                        unconditional_guidance_scale=args["scale"],
-                                                        unconditional_conditioning=uc,
-                                                        eta=args["ddim_eta"],
-                                                        x_T=z_enc,
-                                                        img_callback=callback)
-                        else:
-                            raise Exception(f"Sampler {args['sampler']} not recognised.")
+                            # args["sampler"] == 'plms' or args["sampler"] == 'ddim':
+                            if init_latent is not None and args["strength"] > 0:
+                                z_enc = sampler.stochastic_encode(init_latent,
+                                                                  torch.tensor([t_enc] * batch_size).to(self.device))
+                            else:
+                                z_enc = torch.randn(
+                                    [args["n_samples"], args["C"], args["H"] // args["f"], args["W"] // args["f"]],
+                                    device=self.device)
+                            if args["sampler"] == 'ddim':
+                                samples = sampler.decode(z_enc,
+                                                         c,
+                                                         t_enc,
+                                                         unconditional_guidance_scale=args["scale"],
+                                                         unconditional_conditioning=uc,
+                                                         img_callback=callback)
+                            elif args["sampler"] == 'plms':  # no "decode" function in plms, so use "sample"
+                                shape = [args["C"], args["H"] // args["f"], args["W"] // args["f"]]
+                                samples, _ = sampler.sample(S=args["steps"],
+                                                            conditioning=c,
+                                                            batch_size=args["n_samples"],
+                                                            shape=shape,
+                                                            verbose=False,
+                                                            unconditional_guidance_scale=args["scale"],
+                                                            unconditional_conditioning=uc,
+                                                            eta=args["ddim_eta"],
+                                                            x_T=z_enc,
+                                                            img_callback=callback)
+                            else:
+                                raise Exception(f"Sampler {args['sampler']} not recognised.")
 
-                    if return_latent:
-                        results.append(samples.clone())
+                        if return_latent:
+                            results.append(samples.clone())
 
-                    x_samples = self.model.decode_first_stage(samples)
-                    if return_sample:
-                        results.append(x_samples.clone())
+                        x_samples = self.model.decode_first_stage(samples)
+                        if return_sample:
+                            results.append(x_samples.clone())
 
-                    x_samples = torch.clamp((x_samples + 1.0) / 2.0, min=0.0, max=1.0)
+                        x_samples = torch.clamp((x_samples + 1.0) / 2.0, min=0.0, max=1.0)
 
-                    if return_c:
-                        results.append(c.clone())
+                        if return_c:
+                            results.append(c.clone())
 
-                    for x_sample in x_samples:
-                        x_sample = 255. * rearrange(x_sample.cpu().numpy(), 'c h w -> h w c')
-                        image = Image.fromarray(x_sample.astype(np.uint8))
-                        results.append(image)
+                        for x_sample in x_samples:
+                            x_sample = 255. * rearrange(x_sample.cpu().numpy(), 'c h w -> h w c')
+                            image = Image.fromarray(x_sample.astype(np.uint8))
+                            results.append(image)
         return results
 
     def DeforumAnimArgs(self, ):
