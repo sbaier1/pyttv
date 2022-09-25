@@ -1,0 +1,34 @@
+omegaconf~=2.2.3
+# stablediff dependencies
+git+https://github.com/crowsonkb/k-diffusion@master
+-e git+https://github.com/CompVis/taming-transformers.git@master#egg=taming-transformers
+# git+https://github.com/CompVis/stable-diffusion.git@master#egg=latent-diffusion
+pytorch-lightning==1.7.4
+torchtext==0.13.1
+torchmetrics==0.9.3
+transformers==4.21.2
+kornia==0.6.7
+einops==0.4.1
+py3d
+accelerate
+ftfy
+jsonmerge
+matplotlib~=3.6.0
+resize-right
+timm~=0.6.7
+torchdiffeq
+numpy~=1.22.3
+opencv-python~=4.5.5.64
+onnx~=1.12.0
+onnxruntime~=1.12.1
+torch~=1.12.0.dev20220504
+torchvision~=0.12.0
+pillow~=9.1.0
+tqdm~=4.64.0
+wandb~=0.13.3
+scipy~=1.9.0
+pandas~=1.4.2
+requests~=2.25.1
+scikit-image~=0.19.2
+
+

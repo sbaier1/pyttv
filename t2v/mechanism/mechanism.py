@@ -1,20 +1,23 @@
 from omegaconf import DictConfig
 
+from t2v.config.root import RootConfig
+
 
 class Mechanism:
     """
     Defines an arbitrary text2video mechanism.
     """
 
-    def init(self, config: DictConfig):
+    def __init__(self, config: DictConfig, root_config: RootConfig):
         """
         Initialize the mechanism
+        :param root_config: root config for mechanisms that depend on other global parameters
         :param config: config parameters that configure the mechanism
         :return: None
         """
         pass
 
-    def generate(self, config: DictConfig, context, prompt: str):
+    def generate(self, config: DictConfig, context, prompt: str, t):
         """
         Generate a frame with the mechanism
         :param prompt: prompt to generate frames for

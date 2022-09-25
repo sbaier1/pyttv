@@ -14,6 +14,8 @@ class RootConfig:
     frames_per_second: int
     scenes: List[Scene]
     mechanisms: List[MechanismDefinition]
-    width: int = 512
-    height: int = 512
-
+    width: int
+    height: int
+    torch_device: str
+    output_path: str
+    persistence_dir: str

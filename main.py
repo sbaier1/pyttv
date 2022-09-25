@@ -1,10 +1,10 @@
 import logging
+import sys
 
 import hydra
 
 from t2v.config.root import RootConfig
 from t2v.runner import Runner
-
 
 @hydra.main(config_path="config", config_name="default", version_base=None)
 def _main(cfg: RootConfig):

@@ -7,6 +7,12 @@ frames_per_second: 18
 # Path for output frames and other files
 output_path: generated/
 
+# A directory for intermediary results, and misc. other models that are required
+persistence_dir: persistence/
+
+# Torch device to use
+torch_device: cuda
+
 scenes:
   - # The prompt to generate images from
     prompt: asd
@@ -37,6 +43,26 @@ mechanisms:
       sampler: klms
       # Unconditional guidance scale
       scale: 7
+
+      # How many turbo steps (lower amount of sampling steps) to run in-between "full sized" frames
+      turbo_steps: 1
+      # How many sampling steps to run for a turbo frame
+      turbo_sampling_steps: 10
+      # Noise schedule (how much noise to add to in-between frames), can be a function or static
+      noise_schedule: 0.02
+      strength_schedule: 0.65
+      contrast_schedule: 1.0
+      ddim_eta: 0.0
+      dynamic_threshold:
+      static_threshold:
+      half_precision: true
+      use_init: false
+      init_strength: 0.0
+      init_use_mask: false
+
+      seed: -1
+
+
       # Type of animation to apply between frames, if any
       animation: 3D
       # Parameters for the animation
@@ -44,6 +70,23 @@ mechanisms:
         transform_x: 0
         transform_y: 0
         transform_z: 1
+        # depth model parameters
+        near_plane: 20
+        far_plane: 10000
+        fov: 40
+        sampling_mode: bicubic
+        padding_mode: border
+
+        # Audio reactivity
+        input_audio_file: ""
+        input_audio_offset: 0
+        input_audio_filters: []
+        # input_audio_filters:
+        # - variable_name: fLo # The name of the variable we will use in the animation function
+        #   f_center: 80       # Central frequency the filter will respond to (80Hz)
+        #   f_width: 20        # The filter will pass signals from 70Hz to 90Hz
+        #   order: 6           # The filter slope will be 6*6=36dB per octave
+
 
 # TODO: later: handle remaining tasks also:
 # - upscaling?
