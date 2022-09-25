@@ -56,9 +56,14 @@ mechanisms:
       dynamic_threshold:
       static_threshold:
       half_precision: true
+
       use_init: false
+      init_image: ""
       init_strength: 0.0
       init_use_mask: false
+      strength: 0
+      use_mask: false
+      init_c: null
 
       seed: -1
 
