@@ -20,8 +20,8 @@ class FuncUtil:
         self.eval_memo = {}
 
     def parametric_eval(self, string, t, **vals):
-        if string in self.eval_memo:
-            return self.eval_memo[string]
+        #if string in self.eval_memo:
+        #    return self.eval_memo[string]
         if isinstance(string, str):
             self.math_env.update(vals)
             self.math_env["t"] = t

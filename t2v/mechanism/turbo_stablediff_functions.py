@@ -140,7 +140,7 @@ def sample_to_cv2(sample: torch.Tensor, type=np.uint8) -> np.ndarray:
 
 
 def add_noise(sample: torch.Tensor, noise_amt: float) -> torch.Tensor:
-    return sample + torch.randn(sample.shape, device=sample.device) * noise_amt
+    return sample - noise_amt + torch.randn(sample.shape, device=sample.device) * noise_amt
 
 
 def get_output_folder(output_path, batch_folder):
@@ -314,7 +314,6 @@ class TurboStableDiffUtils:
         return callback
 
     def generate(self, args, return_latent=False, return_sample=False, return_c=False):
-        seed_everything(args["seed"])
 
         # Don't we need k samplers here too?
         sampler = PLMSSampler(self.model) if args["sampler"] == 'plms' else DDIMSampler(self.model)
@@ -623,7 +622,7 @@ class TurboStableDiffUtils:
                 # apply scaling
                 contrast_sample = prev_img * contrast
                 # apply frame noising
-                noised_sample = add_noise(sample_from_cv2(contrast_sample), noise)
+                noised_sample = add_noise(sample_from_cv2(contrast_sample), noise).transpose(0, 3, 1, 2)
 
                 # use transformed previous frame as init for current
                 args.use_init = True

@@ -41,7 +41,7 @@ class SpectralAudioParser:
         if len(self.audio_samples) < 0:
             raise RuntimeError("Audio samples are empty, assuming load failed")
         self.duration = len(self.audio_samples) / SAMPLERATE
-        logging.debug(
+        logging.info(
             f"initialized audio file {input_audio}, samples read: {len(self.audio_samples)}, total duration: {self.duration}s")
         self.offset = offset
         if offset > self.duration:
@@ -66,7 +66,7 @@ class SpectralAudioParser:
                 else:
                     maxima[key] = cur_maxima[key]
         self.band_maxima = maxima
-        logging.debug(f"initialized band maxima for {len(filters)} filters: {self.band_maxima}")
+        logging.info(f"initialized band maxima for {len(filters)} filters: {self.band_maxima}")
 
     def get_params(self, t) -> typing.Dict[str, float]:
         """
@@ -75,17 +75,17 @@ class SpectralAudioParser:
         """
         # Get the point in time (sample-offset) in the track in seconds based on sample-rate
         sample_offset = int(t * SAMPLERATE + self.offset * SAMPLERATE)
-        logging.debug(f"Analyzing audio at {self.offset + t}s")
+        logging.info(f"Analyzing audio at {self.offset + t}s")
         if sample_offset < len(self.audio_samples):
             window_samples = self.audio_samples[sample_offset:sample_offset + self.window_size]
             if len(window_samples) < self.window_size:
                 # audio input file has likely ended
-                logging.debug(
+                logging.info(
                     f"Warning: sample offset is out of range at time offset {t + self.offset}s. Returning null result")
                 return {}
             return bp_filtered_norm(window_samples, self.filters, self.band_maxima)
         else:
-            logging.debug(f"Warning: Audio input has ended. Returning null result")
+            logging.info(f"Warning: Audio input has ended. Returning null result")
             return {}
 
     def get_duration(self):

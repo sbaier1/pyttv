@@ -46,6 +46,7 @@ class Animator3D(Animator):
         if hasattr(self, 'audio_parser') and self.audio_parser is not None:
             params = self.audio_parser.get_params(t)
             extra_state.update(params)
+            logging.info(f"Audio params: {params}")
         translate_xyz = [
             -self.func_tool.parametric_eval(context["translation_x"], t, **extra_state) * TRANSLATION_SCALE,
             self.func_tool.parametric_eval(context["translation_y"], t, **extra_state) * TRANSLATION_SCALE,
@@ -56,7 +57,7 @@ class Animator3D(Animator):
             0, 0, 0
         ]
         rot_mat = p3d.euler_angles_to_matrix(torch.tensor(rotate_xyz, device=self.device), "XYZ").unsqueeze(0)
-        logging.debug(f"Applying 3D transform with translate mat {translate_xyz}, rotate mat {rotate_xyz}")
+        logging.info(f"Applying 3D transform with translate mat {translate_xyz}, rotate mat {rotate_xyz}")
         result = self.transform_image_3d(frame, depth, rot_mat, translate_xyz, context)
         torch.cuda.empty_cache()
 

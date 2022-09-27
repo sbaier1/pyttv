@@ -2,8 +2,12 @@ import logging
 import os
 import sys
 
+import cv2
+import numpy as np
 import torch
+from einops import rearrange
 from omegaconf import OmegaConf
+from pytorch_lightning import seed_everything
 
 from t2v.animation.animator_3d import Animator3D
 from t2v.mechanism.mechanism import Mechanism
@@ -28,6 +32,11 @@ class TurboStableDiff(Mechanism):
                                           args=DeforumArgs(dict(config), root_config))
         # Counter how many frames this instance has generated
         self.index = 0
+
+        # TODO resume initial frame
+        # path = os.path.join(args.outdir,f"{args.timestring}_{last_frame:05}.png")
+        # img = cv2.imread(path)
+        # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         self.color_match_sample = None
         animation_type = config.get("animation")
         if animation_type is not None:
@@ -38,6 +47,8 @@ class TurboStableDiff(Mechanism):
                 self.animator = None
 
     def generate(self, config, context, prompt, t):
+        # TODO: seed method should be configurable
+        seed_everything(self.config["seed"]+self.index)
         args = dict(self.config)
         # Add "overrides"
         args.update(config)
@@ -47,12 +58,33 @@ class TurboStableDiff(Mechanism):
         args["f"] = 8
         args["C"] = 4
         args["n_samples"] = 1
-        if "warped_frame" in context:
-            # Use prev warped frame if exists
-            args["init_sample"] = context["warped_frame"]
+        if "prev_samples" in context:
+            # Use prev frame if exists
+            prev_samples = context["prev_samples"]
+            # TODO: should merge config + self.config as input here so animations can be overriden per-scene
+            warped_frame = self.animator.apply(sample_to_cv2(prev_samples), prompt, self.config.get("animation_parameters"), t)
+
+            # cv2.imwrite(os.path.join(self.root_config.output_path, f"{self.index:05}_warped.png"),
+            #            cv2.cvtColor(warped_frame.astype(np.uint8), cv2.COLOR_RGB2BGR))
+            # apply color matching
+            if self.color_match_sample is not None:
+                warped_frame = self.utils.maintain_colors(warped_frame, self.color_match_sample, 'Match Frame 0 LAB')
+
+            # TODO: parameters for contrast schedule, noise schedule
+            # apply scaling
+            # contrast_sample = warped_frame * 0.95
+            # apply frame noising
+            #torch.tensor(warped_frame, dtype=torch.float32)
+            noised_sample = add_noise(sample_from_cv2(warped_frame), 0.04)
+
+            if args["half_precision"]:
+                noised_sample = noised_sample.half().to(self.device)
+            else:
+                noised_sample = noised_sample.to(self.device)
+            args["init_sample"] = noised_sample
             args["use_init"] = True
             # TODO: config param
-            args["strength"] = 0.68
+            args["strength"] = 0.65
         if self.index % (self.config["turbo_steps"] + 1) == 0:
             # Standard step
             logging.info(f"Standard step at index {self.index}, steps: {args['steps']}")
@@ -67,26 +99,9 @@ class TurboStableDiff(Mechanism):
             self.color_match_sample = sample_to_cv2(samples)
 
         self.index = self.index + 1
-        # TODO: should merge config + self.config as input here so animations can be overriden per-scene
-        warped_frame = self.animator.apply(sample_to_cv2(samples), prompt, self.config.get("animation_parameters"), t)
 
-        # apply color matching
-        if self.color_match_sample is not None:
-            warped_frame = self.utils.maintain_colors(warped_frame, self.color_match_sample, 'Match Frame 0 LAB')
-
-        # TODO: parameters for contrast schedule, noise schedule
-        # apply scaling
-        contrast_sample = warped_frame * 0.95
-        # apply frame noising
-        noised_sample = add_noise(sample_from_cv2(contrast_sample), 0.09)
-
-        if args["half_precision"]:
-            noised_sample = noised_sample.half().to(self.device)
-        else:
-            noised_sample = noised_sample.to(self.device)
         return image, {
-            "samples": samples,
-            "warped_frame": noised_sample,
+            "prev_samples": samples,
         }
 
     def destroy(self):
