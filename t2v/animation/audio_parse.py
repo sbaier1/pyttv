@@ -7,6 +7,26 @@ from scipy.signal import butter, sosfilt, sosfreqz
 SAMPLERATE = 44100
 
 
+def read_audio_signed16(input_audio):
+    logging.info(f"Parsing audio file {input_audio}")
+    pipe = subprocess.Popen(['ffmpeg', '-i', input_audio,
+                             '-f', 's16le',
+                             '-acodec', 'pcm_s16le',
+                             '-ar', str(SAMPLERATE),
+                             '-ac', '1',
+                             '-'], stdout=subprocess.PIPE, bufsize=10 ** 8)
+    audio_samples = np.array([], dtype=np.int16)
+    # read the audio file from the pipe in 0.5s blocks (2 bytes per sample)
+    while True:
+        buf = pipe.stdout.read(SAMPLERATE)
+        audio_samples = np.append(audio_samples, np.frombuffer(buf, dtype=np.int16))
+        if len(buf) < SAMPLERATE:
+            break
+    if len(audio_samples) < 0:
+        raise RuntimeError("Audio samples are empty, assuming load failed")
+    return audio_samples
+
+
 class SpectralAudioParser:
     """
     reads a given input file, scans along it and parses the amplitude in selected bands using butterworth bandpass filters.
@@ -23,23 +43,7 @@ class SpectralAudioParser:
         if len(filters) < 1:
             raise RuntimeError("When using input_audio, at least 1 filter must be specified")
 
-        pipe = subprocess.Popen(['ffmpeg', '-i', input_audio,
-                                 '-f', 's16le',
-                                 '-acodec', 'pcm_s16le',
-                                 '-ar', str(SAMPLERATE),
-                                 '-ac', '1',
-                                 '-'], stdout=subprocess.PIPE, bufsize=10 ** 8)
-
-        self.audio_samples = np.array([], dtype=np.int16)
-
-        # read the audio file from the pipe in 0.5s blocks (2 bytes per sample)
-        while True:
-            buf = pipe.stdout.read(SAMPLERATE)
-            self.audio_samples = np.append(self.audio_samples, np.frombuffer(buf, dtype=np.int16))
-            if len(buf) < SAMPLERATE:
-                break
-        if len(self.audio_samples) < 0:
-            raise RuntimeError("Audio samples are empty, assuming load failed")
+        self.audio_samples = read_audio_signed16(input_audio)
         self.duration = len(self.audio_samples) / SAMPLERATE
         logging.info(
             f"initialized audio file {input_audio}, samples read: {len(self.audio_samples)}, total duration: {self.duration}s")

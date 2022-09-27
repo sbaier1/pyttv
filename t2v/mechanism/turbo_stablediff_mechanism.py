@@ -17,11 +17,11 @@ from t2v.mechanism.turbo_stablediff_functions import DeforumArgs, TurboStableDif
 
 
 class TurboStableDiff(Mechanism):
-    def __init__(self, config, root_config):
-        super().__init__(config, root_config)
+    def __init__(self, config, root_config, func_util):
+        super().__init__(config, root_config, func_util)
         model_path = config["model_path"]
         model_config_path = config["model_config_path"]
-        logging.info(f"Initializing StableDiffusion model, this may ta  ke a while...")
+        logging.info(f"Initializing StableDiffusion model, this may take a while...")
         local_config = OmegaConf.load(model_config_path)
         self.config = config
         self.root_config = root_config
@@ -33,7 +33,7 @@ class TurboStableDiff(Mechanism):
         # Counter how many frames this instance has generated
         self.index = 0
 
-        # TODO resume initial frame
+        # TODO resume last frame
         # path = os.path.join(args.outdir,f"{args.timestring}_{last_frame:05}.png")
         # img = cv2.imread(path)
         # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -41,7 +41,7 @@ class TurboStableDiff(Mechanism):
         animation_type = config.get("animation")
         if animation_type is not None:
             if animation_type == "3D":
-                self.animator = Animator3D(config.get("animation_parameters"), root_config)
+                self.animator = Animator3D(config.get("animation_parameters"), root_config, func_util)
             elif animation_type == "2D":
                 # TODO 2D anim
                 self.animator = None

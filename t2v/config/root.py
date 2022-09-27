@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 from typing import List
 
+from t2v.config.context import AdditionalContextConfig
 from t2v.config.mechanism import MechanismDefinition
 from t2v.config.scene import Scene
 
@@ -19,3 +20,4 @@ class RootConfig:
     torch_device: str
     output_path: str
     persistence_dir: str
+    additional_context: AdditionalContextConfig

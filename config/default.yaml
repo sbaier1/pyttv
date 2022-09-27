@@ -48,7 +48,7 @@ mechanisms:
       turbo_steps: 1
       # How many sampling steps to run for a turbo frame
       turbo_sampling_steps: 10
-      # Noise schedule (how much noise to add to in-between frames), can be a function or static
+      # Noise schedule (how much noise to add to in-between frames to improve variance), can be a function or static
       noise_schedule: 0.02
       strength_schedule: 0.65
       contrast_schedule: 1.0
@@ -81,16 +81,24 @@ mechanisms:
         fov: 40
         sampling_mode: bicubic
         padding_mode: border
+# Other multi-modal context
+additional_context:
+  audio_reactivity:
+    # Audio reactivity configuration
+    # The type of audio-reactivity to perform.
+    #   spectral is a very simple type of audio-reactivity that uses bandpass filters and returns a normalized 0..1 range value for each filter's amplitude at each given point in time.
+    #   beat-librosa uses librosa's beat detection mechanism for detecting beats and simply returns a "beat" variable that is either 0 or 1 in the function environment.
+    type: "spectral"
+    input_audio_file: ""
+    input_audio_offset: 0
+    # Filters are only necessary for spectral type reactivity
+    input_audio_filters: [ ]
+    # input_audio_filters:
+    # - variable_name: fLo # The name of the variable we will use in the animation function
+    #   f_center: 80       # Central frequency the filter will respond to (80Hz)
+    #   f_width: 20        # The filter will pass signals from 70Hz to 90Hz
+    #   order: 6           # The filter slope will be 6*6=36dB per octave
 
-        # Audio reactivity
-        input_audio_file: ""
-        input_audio_offset: 0
-        input_audio_filters: []
-        # input_audio_filters:
-        # - variable_name: fLo # The name of the variable we will use in the animation function
-        #   f_center: 80       # Central frequency the filter will respond to (80Hz)
-        #   f_width: 20        # The filter will pass signals from 70Hz to 90Hz
-        #   order: 6           # The filter slope will be 6*6=36dB per octave
 
 
 # TODO: later: handle remaining tasks also:

@@ -1,5 +1,6 @@
 from omegaconf import DictConfig
 
+from t2v.animation.func_tools import FuncUtil
 from t2v.config.root import RootConfig
 
 
@@ -8,7 +9,7 @@ class Mechanism:
     Defines an arbitrary text2video mechanism.
     """
 
-    def __init__(self, config: DictConfig, root_config: RootConfig):
+    def __init__(self, config: DictConfig, root_config: RootConfig, func_util: FuncUtil):
         """
         Initialize the mechanism
         :param root_config: root config for mechanisms that depend on other global parameters

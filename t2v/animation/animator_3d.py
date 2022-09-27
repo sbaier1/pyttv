@@ -24,7 +24,7 @@ import py3d_tools as p3d
 
 
 class Animator3D(Animator):
-    def __init__(self, config: DictConfig, root_config: RootConfig):
+    def __init__(self, config: DictConfig, root_config: RootConfig, func_util):
         super().__init__(config, root_config)
         self.config = config
         self.root_config = root_config
@@ -36,21 +36,16 @@ class Animator3D(Animator):
         self.midas_weight = config.get("midas_weight", 1.0)
         if self.midas_weight < 1.0:
             self.depth_model.load_adabins()
-        self.func_tool = FuncUtil()
+        self.func_tool = func_util
 
     def apply(self, frame, prompt, context, t):
         depth = self.depth_model.predict(frame, self.midas_weight)
 
         TRANSLATION_SCALE = 1.0 / 200.0  # matches Disco
-        extra_state = {}
-        if hasattr(self, 'audio_parser') and self.audio_parser is not None:
-            params = self.audio_parser.get_params(t)
-            extra_state.update(params)
-            logging.info(f"Audio params: {params}")
         translate_xyz = [
-            -self.func_tool.parametric_eval(context["translation_x"], t, **extra_state) * TRANSLATION_SCALE,
-            self.func_tool.parametric_eval(context["translation_y"], t, **extra_state) * TRANSLATION_SCALE,
-            -self.func_tool.parametric_eval(context["translation_z"], t, **extra_state) * TRANSLATION_SCALE
+            -self.func_tool.parametric_eval(context["translation_x"], t) * TRANSLATION_SCALE,
+            self.func_tool.parametric_eval(context["translation_y"], t) * TRANSLATION_SCALE,
+            -self.func_tool.parametric_eval(context["translation_z"], t) * TRANSLATION_SCALE
         ]
         rotate_xyz = [
             # FIXME no-op for now, not encoded yet
