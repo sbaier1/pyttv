@@ -10,6 +10,7 @@ from t2v.animation.audio_parse_beats import BeatAudioParser
 from t2v.animation.func_tools import FuncUtil
 from t2v.config.root import RootConfig
 from t2v.config.scene import Scene
+from t2v.mechanism.api_mechanism import ApiMechanism
 from t2v.mechanism.noop_mechanism import NoopMechanism
 from t2v.mechanism.turbo_stablediff_mechanism import TurboStableDiff
 
@@ -28,6 +29,7 @@ class Runner:
         self.mechanism_types = {
             TurboStableDiff.name(): TurboStableDiff,
             NoopMechanism.name(): NoopMechanism,
+            ApiMechanism.name(): ApiMechanism
         }
         self.cfg = cfg
         # Stores instantiated mechanism objects by their name within the config

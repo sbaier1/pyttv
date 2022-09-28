@@ -81,6 +81,44 @@ mechanisms:
         fov: 40
         sampling_mode: bicubic
         padding_mode: border
+  - # Name of this parameter set within the config. Can be referenced in scenes
+    name: api
+    # Name of the mechanism to use
+    type: api
+    # Arbitrary parameters the text2video mechanism can take. These are always implementation specific
+    mechanism_parameters:
+      host: http://localhost:7860
+      seed: 123456
+      # Additional parameters to format the txt2img request body template with (prompt is auto-filled)
+      txt2img_params:
+        steps: 20
+        # Euler a, LMS, ...
+        sampler: LMS
+        scale: 7.0
+        W: 768
+        H: 512
+      img2img_params:
+        steps: 20
+        # Euler a, LMS, ...
+        sampler: LMS
+        scale: 7.0
+        W: 768
+        H: 512
+        # This is denoising strength here, lower = better flow
+        strength: 0.45
+      # Type of animation to apply between frames, if any
+      animation: 3D
+      # Parameters for the animation
+      animation_parameters:
+        translation_x: 0
+        translation_y: beat*2*1*sin(1/4*t)
+        translation_z: 0.5+beat*7
+        # depth model parameters
+        near_plane: 200
+        far_plane: 10000
+        fov: 40
+        sampling_mode: bicubic
+        padding_mode: border
 # Other, global multi-modal context
 additional_context:
   audio_reactivity:
