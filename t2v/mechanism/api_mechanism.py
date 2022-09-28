@@ -181,14 +181,17 @@ class ApiMechanism(Mechanism):
             image_array = np.array(prev_frame).astype(np.uint8)
             warped_frame = self.animator.apply(image_array, prompt,
                                                self.config.get("animation_parameters"), t)
-            if self.color_match_sample is not None:
-                warped_frame = maintain_colors(warped_frame, self.color_match_sample, 'Match Frame 0 LAB')
-            else:
-                self.color_match_sample = image_array
             noised_sample = add_noise(sample_from_cv2(warped_frame),
                                       self.func_util.parametric_eval(config_param.get("noise_schedule"), t))
             noised_sample = sample_to_cv2(noised_sample)
-            img = self._img2img(prompt, config_param, Image.fromarray(noised_sample))
+            if self.color_match_sample is not None:
+                noised_sample = maintain_colors(noised_sample, self.color_match_sample, 'Match Frame 0 LAB')
+            else:
+                self.color_match_sample = noised_sample
+            # Contrast adjust test
+            im_mean = np.mean(noised_sample)
+            noised_sample = (noised_sample - im_mean) * 0.9 + im_mean
+            img = self._img2img(prompt, config_param, Image.fromarray(noised_sample.astype(np.uint8)))
         self.index = self.index + 1
         return img, {
             "prev_frame": img
@@ -196,7 +199,7 @@ class ApiMechanism(Mechanism):
 
     def _txt2img(self, prompt: str, config_param: DictConfig):
         body = TXT2IMG.format(prompt=prompt, **config_param.get("txt2img_params"),
-                              seed=config_param.get("seed") + self.index, W=self.root_config.width,
+                              seed=config_param.get("seed")+self.index, W=self.root_config.width,
                               H=self.root_config.height)
         res = requests.post(f"{self.host}/api/predict/",
                             data=body)

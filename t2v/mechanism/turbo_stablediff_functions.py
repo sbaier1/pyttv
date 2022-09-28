@@ -140,7 +140,7 @@ def sample_to_cv2(sample: torch.Tensor, type=np.uint8) -> np.ndarray:
 
 
 def add_noise(sample: torch.Tensor, noise_amt: float) -> torch.Tensor:
-    return sample - noise_amt + torch.randn(sample.shape, device=sample.device) * noise_amt
+    return sample - (noise_amt/2) + torch.randn(sample.shape, device=sample.device) * noise_amt
 
 
 def get_output_folder(output_path, batch_folder):
