@@ -15,7 +15,7 @@ import requests
 
 # Generated with revision e22ea454a273b3a8a807a5acb2e6f0d0d41c9aa7,
 # diff the template with a captured query of a more recent version to update these when necessary
-from t2v.mechanism.turbo_stablediff_functions import add_noise, sample_from_cv2, sample_to_cv2
+from t2v.mechanism.turbo_stablediff_functions import add_noise, sample_from_cv2, sample_to_cv2, maintain_colors
 
 TXT2IMG = """
 {{
@@ -156,6 +156,7 @@ class ApiMechanism(Mechanism):
         self.func_util = func_util
         self.host = self.config.get("host")
         self.index = 0
+        self.color_match_sample = None
 
     def generate(self, config: DictConfig, context, prompt: str, t):
         # TODO: template out the queries, run txt2img, decode the image
@@ -170,13 +171,22 @@ class ApiMechanism(Mechanism):
             config_param.update(config)
         else:
             config_param = self.config
+        if self.index % (self.config["turbo_steps"] + 1) != 0:
+            # Turbo step, override steps params
+            config_param.get("txt2img_params").update(steps=config_param.get("turbo_sampling_steps"))
         if "prev_frame" not in context:
             img = self._txt2img(prompt, config_param)
         else:
             prev_frame = context["prev_frame"]
-            warped_frame = self.animator.apply(np.array(prev_frame).astype(np.uint8), prompt,
+            image_array = np.array(prev_frame).astype(np.uint8)
+            warped_frame = self.animator.apply(image_array, prompt,
                                                self.config.get("animation_parameters"), t)
-            noised_sample = add_noise(sample_from_cv2(warped_frame), 0.02)
+            if self.color_match_sample is not None:
+                warped_frame = maintain_colors(warped_frame, self.color_match_sample, 'Match Frame 0 LAB')
+            else:
+                self.color_match_sample = image_array
+            noised_sample = add_noise(sample_from_cv2(warped_frame),
+                                      self.func_util.parametric_eval(config_param.get("noise_schedule"), t))
             noised_sample = sample_to_cv2(noised_sample)
             img = self._img2img(prompt, config_param, Image.fromarray(noised_sample))
         self.index = self.index + 1
@@ -186,7 +196,8 @@ class ApiMechanism(Mechanism):
 
     def _txt2img(self, prompt: str, config_param: DictConfig):
         body = TXT2IMG.format(prompt=prompt, **config_param.get("txt2img_params"),
-                              seed=config_param.get("seed") + self.index)
+                              seed=config_param.get("seed") + self.index, W=self.root_config.width,
+                              H=self.root_config.height)
         res = requests.post(f"{self.host}/api/predict/",
                             data=body)
         if res.status_code == 200:
@@ -208,7 +219,8 @@ class ApiMechanism(Mechanism):
         # clip off the "byte" indicators in the result string
         img_str = str(base64.b64encode(buffered.getvalue()))[2:-1]
         body = IMG2IMG.format(prompt=prompt, **config_param.get("img2img_params"), pngbase64=img_str,
-                              seed=config_param.get("seed") + self.index)
+                              seed=config_param.get("seed") + self.index, W=self.root_config.width,
+                              H=self.root_config.height)
         res = requests.post(f"{self.host}/api/predict/",
                             data=body)
         if res.status_code == 200:
