@@ -1,20 +1,31 @@
 from omegaconf import DictConfig
 
+from t2v.animation.animator_3d import Animator3D
+from t2v.animation.func_tools import FuncUtil
+from t2v.config.root import RootConfig
+
 
 class Mechanism:
     """
     Defines an arbitrary text2video mechanism.
     """
 
-    def init(self, config: DictConfig):
+    def __init__(self, config: DictConfig, root_config: RootConfig, func_util: FuncUtil):
         """
         Initialize the mechanism
+        :param root_config: root config for mechanisms that depend on other global parameters
         :param config: config parameters that configure the mechanism
         :return: None
         """
-        pass
+        animation_type = config.get("animation")
+        if animation_type is not None:
+            if animation_type == "3D":
+                self.animator = Animator3D(config.get("animation_parameters"), root_config, func_util)
+            elif animation_type == "2D":
+                # TODO 2D anim
+                self.animator = None
 
-    def generate(self, config: DictConfig, context, prompt: str):
+    def generate(self, config: DictConfig, context, prompt: str, t):
         """
         Generate a frame with the mechanism
         :param prompt: prompt to generate frames for
