@@ -1,17 +1,11 @@
 import logging
-import os
-import sys
 
-import cv2
-import numpy as np
 import torch
-from einops import rearrange
+from ldm.util import instantiate_from_config
 from omegaconf import OmegaConf
 from pytorch_lightning import seed_everything
 
-from t2v.animation.animator_3d import Animator3D
 from t2v.mechanism.mechanism import Mechanism
-from ldm.util import instantiate_from_config
 from t2v.mechanism.turbo_stablediff_functions import DeforumArgs, TurboStableDiffUtils, sample_to_cv2, sample_from_cv2, \
     add_noise
 
@@ -19,6 +13,7 @@ from t2v.mechanism.turbo_stablediff_functions import DeforumArgs, TurboStableDif
 class TurboStableDiff(Mechanism):
     def __init__(self, config, root_config, func_util):
         super().__init__(config, root_config, func_util)
+        self.func_util = func_util
         model_path = config["model_path"]
         model_config_path = config["model_config_path"]
         logging.info(f"Initializing StableDiffusion model, this may take a while...")
@@ -38,18 +33,18 @@ class TurboStableDiff(Mechanism):
         # img = cv2.imread(path)
         # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         self.color_match_sample = None
-        animation_type = config.get("animation")
-        if animation_type is not None:
-            if animation_type == "3D":
-                self.animator = Animator3D(config.get("animation_parameters"), root_config, func_util)
-            elif animation_type == "2D":
-                # TODO 2D anim
-                self.animator = None
 
     def generate(self, config, context, prompt, t):
         # TODO: seed method should be configurable
-        seed_everything(self.config["seed"]+self.index)
+        seed_everything(self.config["seed"] + self.index)
         args = dict(self.config)
+        # Overlay base config with overrides from current scene
+        if config is not None:
+            config_new = self.config.copy()
+            config_new.update(config)
+            config = config_new
+        else:
+            config = self.config
         # Add "overrides"
         args.update(config)
         args["prompt"] = prompt
@@ -62,7 +57,8 @@ class TurboStableDiff(Mechanism):
             # Use prev frame if exists
             prev_samples = context["prev_samples"]
             # TODO: should merge config + self.config as input here so animations can be overriden per-scene
-            warped_frame = self.animator.apply(sample_to_cv2(prev_samples), prompt, self.config.get("animation_parameters"), t)
+            warped_frame = self.animator.apply(sample_to_cv2(prev_samples), prompt,
+                                               self.config.get("animation_parameters"), t)
 
             # cv2.imwrite(os.path.join(self.root_config.output_path, f"{self.index:05}_warped.png"),
             #            cv2.cvtColor(warped_frame.astype(np.uint8), cv2.COLOR_RGB2BGR))
@@ -74,8 +70,9 @@ class TurboStableDiff(Mechanism):
             # apply scaling
             # contrast_sample = warped_frame * 0.95
             # apply frame noising
-            #torch.tensor(warped_frame, dtype=torch.float32)
-            noised_sample = add_noise(sample_from_cv2(warped_frame), 0.04)
+            # torch.tensor(warped_frame, dtype=torch.float32)
+            noised_sample = add_noise(sample_from_cv2(warped_frame),
+                                      self.func_util.parametric_eval(config.get("noise_schedule"), t))
 
             if args["half_precision"]:
                 noised_sample = noised_sample.half().to(self.device)
@@ -83,15 +80,16 @@ class TurboStableDiff(Mechanism):
                 noised_sample = noised_sample.to(self.device)
             args["init_sample"] = noised_sample
             args["use_init"] = True
-            # TODO: config param
-            args["strength"] = 0.65
+            args["strength"] = self.func_util.parametric_eval(config.get("strength_schedule"), t)
+            # TODO: can dynamic thresholding be useful? more testing needed. static seed?
+            # args["dynamic_threshold"] = 1
         if self.index % (self.config["turbo_steps"] + 1) == 0:
             # Standard step
             logging.info(f"Standard step at index {self.index}, steps: {args['steps']}")
             samples, image = self.utils.generate(args, return_sample=True)
         else:
             # Turbo step
-            logging.info(f"Turbo step at index {self.index}, steps: {args['steps']}")
+            logging.info(f"Turbo step at index {self.index}, steps: {args['turbo_sampling_steps']}")
             args["steps"] = args["turbo_sampling_steps"]
             samples, image = self.utils.generate(args, return_sample=True)
 

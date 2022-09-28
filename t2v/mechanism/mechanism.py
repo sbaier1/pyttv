@@ -1,5 +1,6 @@
 from omegaconf import DictConfig
 
+from t2v.animation.animator_3d import Animator3D
 from t2v.animation.func_tools import FuncUtil
 from t2v.config.root import RootConfig
 
@@ -16,7 +17,13 @@ class Mechanism:
         :param config: config parameters that configure the mechanism
         :return: None
         """
-        pass
+        animation_type = config.get("animation")
+        if animation_type is not None:
+            if animation_type == "3D":
+                self.animator = Animator3D(config.get("animation_parameters"), root_config, func_util)
+            elif animation_type == "2D":
+                # TODO 2D anim
+                self.animator = None
 
     def generate(self, config: DictConfig, context, prompt: str, t):
         """

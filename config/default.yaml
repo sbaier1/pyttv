@@ -81,7 +81,7 @@ mechanisms:
         fov: 40
         sampling_mode: bicubic
         padding_mode: border
-# Other multi-modal context
+# Other, global multi-modal context
 additional_context:
   audio_reactivity:
     # Audio reactivity configuration
@@ -89,7 +89,9 @@ additional_context:
     #   spectral is a very simple type of audio-reactivity that uses bandpass filters and returns a normalized 0..1 range value for each filter's amplitude at each given point in time.
     #   beat-librosa uses librosa's beat detection mechanism for detecting beats and simply returns a "beat" variable that is either 0 or 1 in the function environment.
     type: "spectral"
+    # Path to the audio file, any audio file compatible with ffmpeg will work
     input_audio_file: ""
+    # Offset the audio by this many seconds. Useful when generating a scene only for a specific part in an audio file
     input_audio_offset: 0
     # Filters are only necessary for spectral type reactivity
     input_audio_filters: [ ]
