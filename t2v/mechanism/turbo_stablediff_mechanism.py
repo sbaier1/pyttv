@@ -1,6 +1,7 @@
 import logging
 
 import torch
+from PIL import Image
 from ldm.util import instantiate_from_config
 from omegaconf import OmegaConf
 from pytorch_lightning import seed_everything
@@ -53,11 +54,40 @@ class TurboStableDiff(Mechanism):
         args["f"] = 8
         args["C"] = 4
         args["n_samples"] = 1
+        strength_evaluated = self.func_util.parametric_eval(config.get("strength_schedule"), t)
         if "prev_samples" in context:
             # Use prev frame if exists
             prev_samples = context["prev_samples"]
             # TODO: should merge config + self.config as input here so animations can be overriden per-scene
-            warped_frame = self.animator.apply(sample_to_cv2(prev_samples), prompt,
+            previous_image = sample_to_cv2(prev_samples)
+            # TODO: this naive image blending doesn't work very well yet.
+            #        - does it make sense / is it possible to weighted-condition the prompt on the previous one?
+            #        - can we have multiple init samples for img2img during the interpolation to make them more alike? can those be weighted?
+            #        - does it make sense to have a sloped denoising reduction during the interpolation to keep more of the interpolation frames?
+            if len(self.interpolation_frames) > 0 and self.interpolation_index < len(self.interpolation_frames):
+                interpolation_frame = self.interpolation_frames[self.interpolation_index]
+                interpolation_function = config.get("interpolation_function")
+                factor = None
+                percentage = float(self.interpolation_index / len(self.interpolation_frames))
+                if interpolation_function is not None:
+                    # 0..1 percentage how far along the interpolation is
+                    factor = self.func_util.parametric_eval(interpolation_function, t, x=percentage)
+                else:
+                    # linear interpolation
+                    factor = percentage
+                # Set the result image of the blend as the input for the ongoing animation
+                previous_image = self.blend_frames(interpolation_frame, Image.fromarray(previous_image), factor)
+                # modulate the denoising strength while the interpolation is ongoing to retain more of the interpolation frames
+                strength_evaluated = min(0.1, strength_evaluated-(factor*0.4))
+                self.interpolation_index = self.interpolation_index + 1
+            elif self.interpolation_index == len(self.interpolation_frames):
+                # Interpolation finished, reset state
+                self.interpolation_index = 0
+                self.interpolation_frames = []
+                self.interpolation_prev_prompt = None
+
+
+            warped_frame = self.animator.apply(previous_image, prompt,
                                                self.config.get("animation_parameters"), t)
 
             # cv2.imwrite(os.path.join(self.root_config.output_path, f"{self.index:05}_warped.png"),
@@ -80,7 +110,7 @@ class TurboStableDiff(Mechanism):
                 noised_sample = noised_sample.to(self.device)
             args["init_sample"] = noised_sample
             args["use_init"] = True
-            args["strength"] = self.func_util.parametric_eval(config.get("strength_schedule"), t)
+            args["strength"] = strength_evaluated
             # TODO: can dynamic thresholding be useful? more testing needed. static seed?
             # args["dynamic_threshold"] = 1
         if self.index % (self.config["turbo_steps"] + 1) == 0:
