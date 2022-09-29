@@ -140,7 +140,7 @@ def sample_to_cv2(sample: torch.Tensor, type=np.uint8) -> np.ndarray:
 
 
 def add_noise(sample: torch.Tensor, noise_amt: float) -> torch.Tensor:
-    return sample - noise_amt + torch.randn(sample.shape, device=sample.device) * noise_amt
+    return sample - (noise_amt/2) + torch.randn(sample.shape, device=sample.device) * noise_amt
 
 
 def get_output_folder(output_path, batch_folder):
@@ -239,20 +239,6 @@ class TurboStableDiffUtils:
 
         mask = np.clip(mask, 0, 1)
         return mask
-
-    def maintain_colors(self, prev_img, color_match_sample, mode):
-        if mode == 'Match Frame 0 RGB':
-            return match_histograms(prev_img, color_match_sample, multichannel=True)
-        elif mode == 'Match Frame 0 HSV':
-            prev_img_hsv = cv2.cvtColor(prev_img, cv2.COLOR_RGB2HSV)
-            color_match_hsv = cv2.cvtColor(color_match_sample, cv2.COLOR_RGB2HSV)
-            matched_hsv = match_histograms(prev_img_hsv, color_match_hsv, multichannel=True)
-            return cv2.cvtColor(matched_hsv, cv2.COLOR_HSV2RGB)
-        else:  # Match Frame 0 LAB
-            prev_img_lab = cv2.cvtColor(prev_img, cv2.COLOR_RGB2LAB)
-            color_match_lab = cv2.cvtColor(color_match_sample, cv2.COLOR_RGB2LAB)
-            matched_lab = match_histograms(prev_img_lab, color_match_lab, multichannel=True)
-            return cv2.cvtColor(matched_lab, cv2.COLOR_LAB2RGB)
 
     def make_callback(self, sampler_name, dynamic_threshold=None, static_threshold=None, mask=None, init_latent=None,
                       sigmas=None,
@@ -803,3 +789,18 @@ class DeforumAnimKeys():
                                                        anim_args.max_frames)
         self.contrast_schedule_series = get_inbetweens(parse_key_frames(anim_args.contrast_schedule),
                                                        anim_args.max_frames)
+
+
+def maintain_colors(prev_img, color_match_sample, mode):
+    if mode == 'Match Frame 0 RGB':
+        return match_histograms(prev_img, color_match_sample, multichannel=True)
+    elif mode == 'Match Frame 0 HSV':
+        prev_img_hsv = cv2.cvtColor(prev_img, cv2.COLOR_RGB2HSV)
+        color_match_hsv = cv2.cvtColor(color_match_sample, cv2.COLOR_RGB2HSV)
+        matched_hsv = match_histograms(prev_img_hsv, color_match_hsv, multichannel=True)
+        return cv2.cvtColor(matched_hsv, cv2.COLOR_HSV2RGB)
+    else:  # Match Frame 0 LAB
+        prev_img_lab = cv2.cvtColor(prev_img, cv2.COLOR_RGB2LAB)
+        color_match_lab = cv2.cvtColor(color_match_sample, cv2.COLOR_RGB2LAB)
+        matched_lab = match_histograms(prev_img_lab, color_match_lab, multichannel=True)
+        return cv2.cvtColor(matched_lab, cv2.COLOR_LAB2RGB)

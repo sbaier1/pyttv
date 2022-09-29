@@ -7,7 +7,7 @@ from pytorch_lightning import seed_everything
 
 from t2v.mechanism.mechanism import Mechanism
 from t2v.mechanism.turbo_stablediff_functions import DeforumArgs, TurboStableDiffUtils, sample_to_cv2, sample_from_cv2, \
-    add_noise
+    add_noise, maintain_colors
 
 
 class TurboStableDiff(Mechanism):
@@ -64,7 +64,7 @@ class TurboStableDiff(Mechanism):
             #            cv2.cvtColor(warped_frame.astype(np.uint8), cv2.COLOR_RGB2BGR))
             # apply color matching
             if self.color_match_sample is not None:
-                warped_frame = self.utils.maintain_colors(warped_frame, self.color_match_sample, 'Match Frame 0 LAB')
+                warped_frame = maintain_colors(warped_frame, self.color_match_sample, 'Match Frame 0 LAB')
 
             # TODO: parameters for contrast schedule, noise schedule
             # apply scaling
@@ -93,7 +93,7 @@ class TurboStableDiff(Mechanism):
             args["steps"] = args["turbo_sampling_steps"]
             samples, image = self.utils.generate(args, return_sample=True)
 
-        if self.index == 0:
+        if self.color_match_sample is None:
             self.color_match_sample = sample_to_cv2(samples)
 
         self.index = self.index + 1
