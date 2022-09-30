@@ -87,14 +87,15 @@ class Runner:
                 context = last_context
                 if i < len(self.cfg.scenes) - 1 and interpolation_duration.total_seconds() > 0:
                     frame_count = self.get_frame_count(interpolation_duration.total_seconds())
-                    for k in range(1, frame_count):
+                    for k in range(0, frame_count):
                         # Get the interpolation frames:
                         # These are additional, initially unused frames from the current scene.
                         frame_path = os.path.join(self.output_path, INTERPOLATE_DIRECTORY, f"{i:02}_{k:05}.png")
                         context = self.generate_and_save_frame(context, self.get_or_initialize_mechanism(scene),
                                                                scene, frame_path)
                         interpolation_frames.append(frame_path)
-                        prev_prompt = scene.prompt
+                    prev_prompt = scene.prompt
+                    self.get_or_initialize_mechanism(scene).set_interpolation_state(interpolation_frames, prev_prompt)
                 else:
                     interpolation_frames = []
 

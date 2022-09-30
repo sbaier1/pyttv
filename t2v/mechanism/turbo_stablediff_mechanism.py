@@ -1,5 +1,6 @@
 import logging
 
+import numpy as np
 import torch
 from PIL import Image
 from ldm.util import instantiate_from_config
@@ -55,41 +56,17 @@ class TurboStableDiff(Mechanism):
         args["C"] = 4
         args["n_samples"] = 1
         strength_evaluated = self.func_util.parametric_eval(config.get("strength_schedule"), t)
-        if "prev_samples" in context:
+        if "prev_samples" in context or len(self.interpolation_frames) > 0:
             # Use prev frame if exists
-            prev_samples = context["prev_samples"]
-            # TODO: should merge config + self.config as input here so animations can be overriden per-scene
-            previous_image = sample_to_cv2(prev_samples)
-            # TODO: this naive image blending doesn't work very well yet.
-            #        - does it make sense / is it possible to weighted-condition the prompt on the previous one?
-            #        - can we have multiple init samples for img2img during the interpolation to make them more alike? can those be weighted?
-            #        - does it make sense to have a sloped denoising reduction during the interpolation to keep more of the interpolation frames?
-            if len(self.interpolation_frames) > 0 and self.interpolation_index < len(self.interpolation_frames):
-                interpolation_frame = self.interpolation_frames[self.interpolation_index]
-                interpolation_function = config.get("interpolation_function")
-                factor = None
-                percentage = float(self.interpolation_index / len(self.interpolation_frames))
-                if interpolation_function is not None:
-                    # 0..1 percentage how far along the interpolation is
-                    factor = self.func_util.parametric_eval(interpolation_function, t, x=percentage)
-                else:
-                    # linear interpolation
-                    factor = percentage
-                # Set the result image of the blend as the input for the ongoing animation
-                previous_image = self.blend_frames(interpolation_frame, Image.fromarray(previous_image), factor)
-                # modulate the denoising strength while the interpolation is ongoing to retain more of the interpolation frames
-                strength_evaluated = min(0.1, strength_evaluated-(factor*0.4))
-                self.interpolation_index = self.interpolation_index + 1
-            elif self.interpolation_index == len(self.interpolation_frames):
-                # Interpolation finished, reset state
-                self.interpolation_index = 0
-                self.interpolation_frames = []
-                self.interpolation_prev_prompt = None
-
-
+            if "prev_samples" in context:
+                prev_samples = context["prev_samples"]
+                # TODO: should merge config + self.config as input here so animations can be overriden per-scene
+                previous_image = sample_to_cv2(prev_samples)
+            else:
+                previous_image = None
+            previous_image, strength_evaluated = self.interpolate(config, previous_image, strength_evaluated, t)
             warped_frame = self.animator.apply(previous_image, prompt,
                                                self.config.get("animation_parameters"), t)
-
             # cv2.imwrite(os.path.join(self.root_config.output_path, f"{self.index:05}_warped.png"),
             #            cv2.cvtColor(warped_frame.astype(np.uint8), cv2.COLOR_RGB2BGR))
             # apply color matching
@@ -131,6 +108,38 @@ class TurboStableDiff(Mechanism):
         return image, {
             "prev_samples": samples,
         }
+
+    def interpolate(self, config, previous_image, strength_evaluated, t):
+        # TODO: this naive image blending doesn't work very well yet.
+        #        - does it make sense / is it possible to weighted-condition the prompt on the previous one?
+        #        - can we have multiple init samples for img2img during the interpolation to make them more alike? can those be weighted?
+        #        - does it make sense to have a sloped denoising reduction during the interpolation to keep more of the interpolation frames?
+        if len(self.interpolation_frames) > 0 and self.interpolation_index < len(self.interpolation_frames):
+            interpolation_frame = self.interpolation_frames[self.interpolation_index]
+            interpolation_function = config.get("interpolation_function")
+            factor = None
+            percentage = float(self.interpolation_index / len(self.interpolation_frames))
+            if interpolation_function is not None:
+                # 0..1 percentage how far along the interpolation is
+                factor = self.func_util.parametric_eval(interpolation_function, t, x=percentage)
+            else:
+                # linear interpolation
+                factor = percentage
+            # Set the result image of the blend as the input for the ongoing animation
+            if previous_image is not None:
+                previous_image = np.asarray(self.blend_frames(Image.open(interpolation_frame), Image.fromarray(previous_image), factor))
+            else:
+                previous_image = np.asarray(Image.open(interpolation_frame))
+            # modulate the denoising strength while the interpolation is ongoing to retain more of the interpolation frames
+            strength_evaluated = min(0.1, strength_evaluated - (factor * 0.6))
+            print(f"strength after damping {strength_evaluated}, factor {factor}")
+            self.interpolation_index = self.interpolation_index + 1
+        elif self.interpolation_index == len(self.interpolation_frames):
+            # Interpolation finished, reset state
+            self.interpolation_index = 0
+            self.interpolation_frames = []
+            self.interpolation_prev_prompt = None
+        return previous_image, strength_evaluated
 
     def destroy(self):
         super().destroy()
