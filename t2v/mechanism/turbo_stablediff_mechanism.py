@@ -115,6 +115,8 @@ class TurboStableDiff(Mechanism):
         #        - can we have multiple init samples for img2img during the interpolation to make them more alike? can those be weighted?
         #        - does it make sense to have a sloped denoising reduction during the interpolation to keep more of the interpolation frames?
         if len(self.interpolation_frames) > 0 and self.interpolation_index < len(self.interpolation_frames):
+            # Disable color matching during the interpolation, so we don't force-keep the previous scene color profile
+            self.color_match_sample = None
             interpolation_frame = self.interpolation_frames[self.interpolation_index]
             interpolation_function = config.get("interpolation_function")
             factor = None
@@ -131,18 +133,25 @@ class TurboStableDiff(Mechanism):
             else:
                 previous_image = np.asarray(Image.open(interpolation_frame))
             # modulate the denoising strength while the interpolation is ongoing to retain more of the interpolation frames
-            strength_evaluated = min(1.0, max(0.1, strength_evaluated + ((1-factor) * 0.6)))
+            strength_evaluated = min(1.0, max(0.1, strength_evaluated + ((1-(factor*1.5)) * 0.6)))
             print(f"strength after damping {strength_evaluated}, factor {factor}")
             self.interpolation_index = self.interpolation_index + 1
         elif self.interpolation_index == len(self.interpolation_frames):
-            # Interpolation finished, reset state
-            self.interpolation_index = 0
+            # Interpolation finished, mark end, ensure this doesn't get called again
+            self.interpolation_index = len(self.interpolation_frames) + 1
             self.interpolation_frames = []
             self.interpolation_prev_prompt = None
+            # Reset color matching again so we can start over fresh with the new scene now
+            self.color_match_sample = None
+            # Set the strength very low intentionally so the new scene can properly influence the image now and we don't retain too much over time
+            return previous_image, 0.2
         return previous_image, strength_evaluated
 
     def destroy(self):
         super().destroy()
+
+    def reset_scene_state(self):
+        self.color_match_sample = None
 
     @staticmethod
     def name():

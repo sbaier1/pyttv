@@ -58,6 +58,11 @@ class Mechanism:
         self.interpolation_index = 0
         self.interpolation_prev_prompt = prev_prompt
 
+    def reset_scene_state(self):
+        """
+        Marks the end of a scene to the mechanism. It can reset its scene-specific state here
+        """
+
     @staticmethod
     def blend_frames(image1: Image, image2: Image, factor: float):
         """
