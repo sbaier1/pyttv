@@ -129,12 +129,12 @@ class TurboStableDiff(Mechanism):
                 factor = percentage
             # Set the result image of the blend as the input for the ongoing animation
             if previous_image is not None:
-                previous_image = np.asarray(self.blend_frames(Image.open(interpolation_frame), Image.fromarray(previous_image), factor))
+                previous_image = np.asarray(
+                    self.blend_frames(Image.open(interpolation_frame), Image.fromarray(previous_image), factor))
             else:
                 previous_image = np.asarray(Image.open(interpolation_frame))
             # modulate the denoising strength while the interpolation is ongoing to retain more of the interpolation frames
-            strength_evaluated = min(1.0, max(0.1, strength_evaluated + ((1-(factor*1.5)) * 0.6)))
-            print(f"strength after damping {strength_evaluated}, factor {factor}")
+            strength_evaluated = min(1.0, max(0.1, strength_evaluated + ((1 - (factor * 1.5)) * 0.6)))
             self.interpolation_index = self.interpolation_index + 1
         elif self.interpolation_index == len(self.interpolation_frames):
             # Interpolation finished, mark end, ensure this doesn't get called again
