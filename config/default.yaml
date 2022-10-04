@@ -18,7 +18,7 @@ scenes:
     prompt: asd
     # How long this prompt should last at the frame rate specified above
     duration: 46s
-    # Interpolation between the previous and this scene
+    # Interpolation between the previous and this scene. does not add to the duration of the scene. The initial frames of this scene will contain the interpolated frames
     interpolation: 0s
     # Which mechanism to use to generate frames. Must be defined with parameters and type below
     mechanism: default

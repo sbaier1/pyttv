@@ -1,3 +1,8 @@
+import os
+import typing
+
+import PIL.Image
+from PIL.Image import Image
 from omegaconf import DictConfig
 
 from t2v.animation.animator_3d import Animator3D
@@ -24,6 +29,9 @@ class Mechanism:
             elif animation_type == "2D":
                 # TODO 2D anim
                 self.animator = None
+        self.interpolation_frames = []
+        self.interpolation_index = 0
+        self.interpolation_prev_prompt = None
 
     def generate(self, config: DictConfig, context, prompt: str, t):
         """
@@ -39,6 +47,32 @@ class Mechanism:
         de-initialize the mechanism. Unload models / free up memory as much as possible
         :return:
         """
+
+    def set_interpolation_state(self, interpolation_frames: typing.List[str], prev_prompt: str = None):
+        """
+        Set the interpolation state for interpolating from the previous to this scene.
+        :param interpolation_frames: The frames for the duration of the interpolation that were rendered from the previous scene
+        :param prev_prompt: The previous prompt if the interpolation implementation is text-conditioned
+        """
+        self.interpolation_frames = interpolation_frames
+        self.interpolation_index = 0
+        self.interpolation_prev_prompt = prev_prompt
+
+    def reset_scene_state(self):
+        """
+        Marks the end of a scene to the mechanism. It can reset its scene-specific state here
+        """
+
+    @staticmethod
+    def blend_frames(image1: Image, image2: Image, factor: float):
+        """
+        basic frame blending between two images
+        :param image1: first image
+        :param image2: second image
+        :param factor: weighting, <= 0.5 favors im1, otherwise favors im2
+        :return: new image
+        """
+        return PIL.Image.blend(image1, image2, factor)
 
     @staticmethod
     def name():

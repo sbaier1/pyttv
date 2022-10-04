@@ -9,7 +9,6 @@ torchmetrics==0.9.3
 transformers==4.21.2
 kornia==0.6.7
 einops==0.4.1
-py3d
 accelerate
 ftfy
 jsonmerge
@@ -30,5 +29,7 @@ scipy~=1.9.0
 pandas~=1.4.2
 requests~=2.25.1
 scikit-image~=0.19.2
+# Beat detection
 librosa
-
+# "Full" music transcription and context, warning this pulls in a complete transitive dependency hell
+omnizart

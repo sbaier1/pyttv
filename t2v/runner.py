@@ -16,7 +16,10 @@ from t2v.mechanism.turbo_stablediff_mechanism import TurboStableDiff
 
 from datetime import timedelta
 
-time_regex = re.compile(r'((?P<hours>\d+?)hr)?((?P<minutes>\d+?)m)?((?P<seconds>\d+?)s)?')
+INTERPOLATE_DIRECTORY = "_interpolate"
+
+time_regex = re.compile(
+    r'(?=((?P<milliseconds>\d+?)ms)?)(?=((?P<hours>\d+?)hr)?)(?=((?P<minutes>\d+?)m(?!s))?)(?=((?P<seconds>\d+?)s)?)')
 
 TYPE_SPECTRAL = "spectral"
 TYPE_LIBROSA = "beats-librosa"
@@ -37,6 +40,8 @@ class Runner:
         path = self.cfg.output_path
         self.output_path = path
         os.makedirs(path, exist_ok=True)
+        # Interpolation frames subdirectory
+        os.makedirs(os.path.join(path, INTERPOLATE_DIRECTORY), exist_ok=True)
         offset = 0
         for dirpath, _, fnames in sorted(os.walk(path)):
             for fname in sorted(fnames):
@@ -68,25 +73,68 @@ class Runner:
 
     def run(self):
         logging.debug(f"Launching with config:\n{OmegaConf.to_yaml(self.cfg)}")
+        # TODO: this is pretty stateful, when resuming a run the interpolation frames will not be used.
+        #  Must find and load them in that case.
+        interpolation_frames = []
+        prev_prompt = None
         for i in range(self.scene_offset, len(self.cfg.scenes)):
             scene = self.cfg.scenes[i]
             logging.info(f"Rendering scene with prompt {scene.prompt}")
-            self.handle_scene(scene, self.t)
+            last_context = self.handle_scene(scene, self.t, interpolation_frames, prev_prompt)
+            # Remove interpolation frames from prev scene, if any
+            interpolation_frames = []
+            # Get interpolation frames, if any
+            if i < len(self.cfg.scenes)-1:
+                interpolation_duration = parse_time(self.cfg.scenes[i + 1].interpolation)
+                context = last_context
+                if i < len(self.cfg.scenes) - 1 and interpolation_duration.total_seconds() > 0:
+                    frame_count = self.get_frame_count(interpolation_duration.total_seconds())
+                    mechanism = self.get_or_initialize_mechanism(scene)
+                    for k in range(0, frame_count):
+                        # Get the interpolation frames:
+                        # These are additional, initially unused frames from the current scene.
+                        frame_path = os.path.join(self.output_path, INTERPOLATE_DIRECTORY, f"{i:02}_{k:05}.png")
+                        context = self.generate_and_save_frame(context, mechanism,
+                                                               scene, frame_path)
+                        interpolation_frames.append(frame_path)
+                    prev_prompt = scene.prompt
+                    mechanism.set_interpolation_state(interpolation_frames, prev_prompt)
+                    mechanism.reset_scene_state()
 
-    def handle_scene(self, scene: Scene, offset):
+    def get_frame_count(self, duration: float):
+        """
+        Get number of frames that covers the given duration. Obviously comes with some inaccuracy.
+        :param duration: duration in seconds, can have millisecond accuracy
+        :return: number of frames
+        """
+        frame_seconds = 1 / self.cfg.frames_per_second
+        return int(duration / frame_seconds)
+
+    def handle_scene(self, scene: Scene, offset,
+                     interpolation_frames, prev_prompt=None):
+        mechanism = self.get_or_initialize_mechanism(scene)
+        context = {}
+        while (self.t - float(offset)) < parse_time(scene.duration).seconds:
+            logging.debug(f"Rendering overall frame {self.frame} in scene with prompt {scene.prompt}")
+            context = self.generate_and_save_frame(context, mechanism, scene,
+                                                   os.path.join(self.output_path, f"{self.frame:05}.png"))
+            # TODO: write frame to disk
+            self.frame = self.frame + 1
+            self.t = (self.frame / self.cfg.frames_per_second)
+        return context
+
+    def get_or_initialize_mechanism(self, scene):
         mechanism_name = scene.mechanism
         if self.mechanisms.get(mechanism_name) is None:
             mechanism = self._init_mechanism(mechanism_name)
         else:
             mechanism = self.mechanisms[mechanism_name]
-        context = {}
-        while (self.t - float(offset)) < parse_time(scene.duration).seconds:
-            logging.debug(f"Rendering overall frame {self.frame} in scene with prompt {scene.prompt}")
-            image_frame, context = mechanism.generate(scene.mechanism_parameters, context, scene.prompt, self.t)
-            image_frame.save(os.path.join(self.output_path, f"{self.frame:05}.png"))
-            # TODO: write frame to disk
-            self.frame = self.frame + 1
-            self.t = (self.frame / self.cfg.frames_per_second)
+        return mechanism
+
+    def generate_and_save_frame(self, context, mechanism, scene, path):
+        image_frame, context = mechanism.generate(scene.mechanism_parameters, context, scene.prompt, self.t)
+        image_frame.save(path)
+        return context
 
     def _init_mechanism(self, mechanism_name):
         # instantiate the mechanism

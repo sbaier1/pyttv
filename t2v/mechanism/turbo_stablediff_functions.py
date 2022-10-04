@@ -803,4 +803,10 @@ def maintain_colors(prev_img, color_match_sample, mode):
         prev_img_lab = cv2.cvtColor(prev_img, cv2.COLOR_RGB2LAB)
         color_match_lab = cv2.cvtColor(color_match_sample, cv2.COLOR_RGB2LAB)
         matched_lab = match_histograms(prev_img_lab, color_match_lab, multichannel=True)
-        return cv2.cvtColor(matched_lab, cv2.COLOR_LAB2RGB)
+        # blend with previous unmatched version so there can be gradual changes. it's too static atm
+        return cv2_blend(cv2.cvtColor(matched_lab, cv2.COLOR_LAB2RGB), prev_img, 0.1)
+
+
+# Effectively the same as PILs blend function but for cv2 style matrices
+def cv2_blend(im1, im2, alpha):
+    return cv2.addWeighted(im1, 1-alpha, im2, alpha, 0)
