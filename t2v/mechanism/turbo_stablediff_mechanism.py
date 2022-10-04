@@ -134,6 +134,8 @@ class TurboStableDiff(Mechanism):
             else:
                 previous_image = np.asarray(Image.open(interpolation_frame))
             # modulate the denoising strength while the interpolation is ongoing to retain more of the interpolation frames
+            # the 1.5 factor ensures we go to the minimum clamped strength so a full transition to the new scene can be
+            # made without retaining some features of the previous scene forever.
             strength_evaluated = min(1.0, max(0.1, strength_evaluated + ((1 - (factor * 1.5)) * 0.6)))
             self.interpolation_index = self.interpolation_index + 1
         elif self.interpolation_index == len(self.interpolation_frames):
