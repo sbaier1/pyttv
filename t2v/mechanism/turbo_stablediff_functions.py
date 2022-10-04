@@ -807,5 +807,6 @@ def maintain_colors(prev_img, color_match_sample, mode):
         return cv2_blend(cv2.cvtColor(matched_lab, cv2.COLOR_LAB2RGB), prev_img, 0.1)
 
 
+# Effectively the same as PILs blend function but for cv2 style matrices
 def cv2_blend(im1, im2, alpha):
     return cv2.addWeighted(im1, 1-alpha, im2, alpha, 0)
