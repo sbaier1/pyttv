@@ -1,4 +1,5 @@
 import logging
+import typing
 
 import torch
 from ldm.util import instantiate_from_config
@@ -32,7 +33,6 @@ class TurboStableDiff(Mechanism):
         # path = os.path.join(args.outdir,f"{args.timestring}_{last_frame:05}.png")
         # img = cv2.imread(path)
         # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        self.color_match_sample = None
 
     def is_turbo_step(self):
         return self.index % (self.config["turbo_steps"] + 1) == 0
@@ -85,8 +85,6 @@ class TurboStableDiff(Mechanism):
             args["steps"] = args["turbo_sampling_steps"]
             samples, image = self.utils.generate(args, return_sample=True)
 
-        if self.color_match_sample is None:
-            self.color_match_sample = sample_to_cv2(samples)
 
         self.index = self.index + 1
 
@@ -97,8 +95,11 @@ class TurboStableDiff(Mechanism):
     def destroy(self):
         super().destroy()
 
+    def set_interpolation_state(self, interpolation_frames: typing.List[str], prev_prompt: str = None):
+        self.anim_wrapper.set_interpolation_state(interpolation_frames, prev_prompt)
+
     def reset_scene_state(self):
-        self.color_match_sample = None
+        self.anim_wrapper.reset_scene_state()
 
     @staticmethod
     def name():

@@ -51,7 +51,7 @@ class Animator3D(Animator):
             0, 0, 0
         ]
         rot_mat = p3d.euler_angles_to_matrix(torch.tensor(rotate_xyz, device=device), "XYZ").unsqueeze(0)
-        logging.info(f"Applying 3D transform with translate mat {translate_xyz}, rotate mat {rotate_xyz}")
+        logging.debug(f"Applying 3D transform with translate mat {translate_xyz}, rotate mat {rotate_xyz}")
         result = self.transform_image_3d(frame, depth, rot_mat, translate_xyz, context)
         torch.cuda.empty_cache()
 

@@ -1,6 +1,7 @@
 import base64
 import io
 import logging
+import typing
 
 import numpy as np
 from PIL import Image
@@ -159,7 +160,7 @@ class ApiMechanism(Mechanism):
         self.func_util = func_util
         self.host = self.config.get("host")
         self.index = 0
-        self.anim_wrapper = T2IAnimatedWrapper(config, root_config, func_util, self.actual_generate)
+        self.anim_wrapper = T2IAnimatedWrapper(config, root_config, func_util, self.actual_generate, self)
 
     def generate(self, config: DictConfig, context, prompt: str, t):
         return self.anim_wrapper.generate(config, context, prompt, t)
@@ -169,17 +170,17 @@ class ApiMechanism(Mechanism):
         # TODO: on subsequent steps, run img2img, encode the previous frame as base64 and use as input
         # TODO: warping code from other mechanism
 
-        #if self.index % (self.config["turbo_steps"] + 1) != 0:
-            # Turbo step, override steps params
-            # TODO: this incorrectly permanently overrides the config
-            #config.get("txt2img_params").update(steps=config.get("turbo_sampling_steps"))
+        # if self.index % (self.config["turbo_steps"] + 1) != 0:
+        # Turbo step, override steps params
+        # TODO: this incorrectly permanently overrides the config
+        # config.get("txt2img_params").update(steps=config.get("turbo_sampling_steps"))
         if "prev_image" not in context:
             img = self._txt2img(prompt, config)
         else:
             image_array = context["prev_image"]
             # Contrast adjust test
-            #im_mean = np.mean(noised_sample)
-            #noised_sample = (noised_sample - im_mean) * 0.9 + im_mean
+            # im_mean = np.mean(noised_sample)
+            # noised_sample = (noised_sample - im_mean) * 0.9 + im_mean
             img = self._img2img(prompt, config, Image.fromarray(image_array))
         self.index = self.index + 1
         return img, {
@@ -188,7 +189,7 @@ class ApiMechanism(Mechanism):
 
     def _txt2img(self, prompt: str, config_param: DictConfig):
         body = TXT2IMG.format(prompt=prompt, **config_param.get("txt2img_params"),
-                              seed=config_param.get("seed")+self.index, W=self.root_config.width,
+                              seed=config_param.get("seed") + self.index, W=self.root_config.width,
                               H=self.root_config.height)
         res = requests.post(f"{self.host}/api/predict/",
                             data=body)
@@ -223,6 +224,12 @@ class ApiMechanism(Mechanism):
             logging.error(f"API request failed, response code {res.status_code}, response body: {res.json()}")
             logging.error(f"Original request body: {body}")
             raise RuntimeError("Unexpected non-200 exit code")
+
+    def set_interpolation_state(self, interpolation_frames: typing.List[str], prev_prompt: str = None):
+        self.anim_wrapper.set_interpolation_state(interpolation_frames, prev_prompt)
+
+    def reset_scene_state(self):
+        self.anim_wrapper.reset_scene_state()
 
     def destroy(self):
         super().destroy()

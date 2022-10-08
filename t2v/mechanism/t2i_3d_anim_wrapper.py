@@ -1,3 +1,4 @@
+import os
 import typing
 
 import numpy as np
@@ -9,6 +10,8 @@ from t2v.config.root import RootConfig
 
 from t2v.mechanism.mechanism import Mechanism
 from t2v.mechanism.turbo_stablediff_functions import sample_to_cv2, maintain_colors, sample_from_cv2, add_noise
+
+import cv2
 
 
 class T2IAnimatedWrapper(Mechanism):
@@ -25,12 +28,15 @@ class T2IAnimatedWrapper(Mechanism):
     """
 
     def __init__(self, config: DictConfig, root_config: RootConfig, func_util: FuncUtil,
-                 mechanism_callback: Mechanism.generate):
+                 mechanism_callback: Mechanism.generate, mechanism: Mechanism):
         super().__init__(config, root_config, func_util)
         self.func_util = func_util
         self.config = config
+        self.root_config = root_config
         self.mechanism_callback = mechanism_callback
+        self.mechanism = mechanism
         self.color_match_sample = None
+        self.index = 0
 
     def generate(self, config: DictConfig, context, prompt: str, t):
         super().generate(config, context, prompt, t)
@@ -38,6 +44,10 @@ class T2IAnimatedWrapper(Mechanism):
         merged_config = self.config.copy()
         if config is not None:
             merged_config.update(config)
+
+        debug = False
+        if "debug" in merged_config:
+            debug = merged_config["debug"]
 
         strength_evaluated = self.func_util.parametric_eval(merged_config.get("strength_schedule"), t)
         # common Img2Img pipeline
@@ -48,8 +58,9 @@ class T2IAnimatedWrapper(Mechanism):
             # Warp
             warped_frame = self.animator.apply(np.array(previous_image), prompt,
                                                merged_config.get("animation_parameters"), t)
-            # cv2.imwrite(os.path.join(self.root_config.output_path, f"{self.index:05}_warped.png"),
-            #            cv2.cvtColor(warped_frame.astype(np.uint8), cv2.COLOR_RGB2BGR))
+            if debug:
+                cv2.imwrite(os.path.join(self.root_config.output_path, f"{self.index:05}_warped.png"),
+                            cv2.cvtColor(warped_frame.astype(np.uint8), cv2.COLOR_RGB2BGR))
             # Color match
             if self.color_match_sample is not None:
                 warped_frame = maintain_colors(warped_frame, self.color_match_sample, 'Match Frame 0 LAB')
@@ -65,12 +76,16 @@ class T2IAnimatedWrapper(Mechanism):
             noised_image = sample_to_cv2(noised_sample)
             if "wrapped_context" in context:
                 context["wrapped_context"]["prev_image"] = noised_image
+        self.index = self.index + 1
 
         # Call wrapped model to generate the next frame
         if "wrapped_context" in context:
             image, context = self.mechanism_callback(merged_config, context["wrapped_context"], prompt, t)
         else:
             image, context = self.mechanism_callback(merged_config, {}, prompt, t)
+
+        if self.color_match_sample is None:
+            self.color_match_sample = np.array(image)
         return image, {
             "prev_image": image,
             "wrapped_context": context
@@ -79,14 +94,12 @@ class T2IAnimatedWrapper(Mechanism):
     def destroy(self):
         super().destroy()
 
-    def set_interpolation_state(self, interpolation_frames: typing.List[str], prev_prompt: str = None):
-        super().set_interpolation_state(interpolation_frames, prev_prompt)
-
     def reset_scene_state(self):
-        super().reset_scene_state()
+        self.color_match_sample = None
 
     @staticmethod
     def name():
+        # Not meant for direct instantiation
         return None
 
     def interpolate(self, config, previous_image, strength_evaluated, t):

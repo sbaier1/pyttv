@@ -29,7 +29,7 @@ class FuncUtil:
             self.math_env["t"] = t
             for callback in self.callbacks.keys():
                 callback_result = self.callbacks[callback](t)
-                logging.info(f"func callback invocation result for {callback}: {callback_result}")
+                logging.debug(f"func callback invocation result for {callback}: {callback_result}")
                 self.math_env.update(callback_result)
             try:
                 output = eval(string, self.math_env)
