@@ -13,13 +13,14 @@ from t2v.mechanism.mechanism import Mechanism
 
 import requests
 
-# Generated with revision e22ea454a273b3a8a807a5acb2e6f0d0d41c9aa7,
+from t2v.mechanism.t2i_3d_anim_wrapper import T2IAnimatedWrapper
+# Generated with revision f7c787eb7c295c27439f4fbdf78c26b8389560be,
 # diff the template with a captured query of a more recent version to update these when necessary
 from t2v.mechanism.turbo_stablediff_functions import add_noise, sample_from_cv2, sample_to_cv2, maintain_colors
 
 TXT2IMG = """
 {{
-"fn_index": 12,
+"fn_index": 11,
   "data": [
     "{prompt}",
     "",
@@ -45,14 +46,15 @@ TXT2IMG = """
     0.7,
     "None",
     false,
+    false,
     null,
     "",
-    false,
     "Seed",
     "",
     "Steps",
     "",
     true,
+    false,
     null,
     "",
     ""
@@ -63,7 +65,7 @@ TXT2IMG = """
 
 IMG2IMG = """
 {{
-"fn_index": 30,
+"fn_index": 29,
     "data": [
         0,
         "{prompt}",
@@ -129,9 +131,9 @@ IMG2IMG = """
             "down"
         ],
         false,
+        false,
         null,
         "",
-        false,
         "",
         64,
         "None",
@@ -142,6 +144,7 @@ IMG2IMG = """
         true,
         false,
         null,
+        "",
         ""
 ],
 "session_hash": "djrqd1giwif"
@@ -156,45 +159,31 @@ class ApiMechanism(Mechanism):
         self.func_util = func_util
         self.host = self.config.get("host")
         self.index = 0
-        self.color_match_sample = None
+        self.anim_wrapper = T2IAnimatedWrapper(config, root_config, func_util, self.actual_generate)
 
     def generate(self, config: DictConfig, context, prompt: str, t):
+        return self.anim_wrapper.generate(config, context, prompt, t)
+
+    def actual_generate(self, config: DictConfig, context, prompt: str, t):
         # TODO: template out the queries, run txt2img, decode the image
         # TODO: on subsequent steps, run img2img, encode the previous frame as base64 and use as input
         # TODO: warping code from other mechanism
 
-        # TODO move into base class method
-        # TODO not sure if this works as intended for nested dicts
-        # config overlaying
-        if config is not None:
-            config_param = self.config.copy()
-            config_param.update(config)
-        else:
-            config_param = self.config
-        if self.index % (self.config["turbo_steps"] + 1) != 0:
+        #if self.index % (self.config["turbo_steps"] + 1) != 0:
             # Turbo step, override steps params
-            config_param.get("txt2img_params").update(steps=config_param.get("turbo_sampling_steps"))
-        if "prev_frame" not in context:
-            img = self._txt2img(prompt, config_param)
+            # TODO: this incorrectly permanently overrides the config
+            #config.get("txt2img_params").update(steps=config.get("turbo_sampling_steps"))
+        if "prev_image" not in context:
+            img = self._txt2img(prompt, config)
         else:
-            prev_frame = context["prev_frame"]
-            image_array = np.array(prev_frame).astype(np.uint8)
-            warped_frame = self.animator.apply(image_array, prompt,
-                                               self.config.get("animation_parameters"), t)
-            noised_sample = add_noise(sample_from_cv2(warped_frame),
-                                      self.func_util.parametric_eval(config_param.get("noise_schedule"), t))
-            noised_sample = sample_to_cv2(noised_sample)
-            if self.color_match_sample is not None:
-                noised_sample = maintain_colors(noised_sample, self.color_match_sample, 'Match Frame 0 LAB')
-            else:
-                self.color_match_sample = noised_sample
+            image_array = context["prev_image"]
             # Contrast adjust test
-            im_mean = np.mean(noised_sample)
-            noised_sample = (noised_sample - im_mean) * 0.9 + im_mean
-            img = self._img2img(prompt, config_param, Image.fromarray(noised_sample.astype(np.uint8)))
+            #im_mean = np.mean(noised_sample)
+            #noised_sample = (noised_sample - im_mean) * 0.9 + im_mean
+            img = self._img2img(prompt, config, Image.fromarray(image_array))
         self.index = self.index + 1
         return img, {
-            "prev_frame": img
+            "prev_frame": np.array(img).astype(np.uint8)
         }
 
     def _txt2img(self, prompt: str, config_param: DictConfig):

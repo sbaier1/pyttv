@@ -36,7 +36,10 @@ class Animator3D(Animator):
 
     def apply(self, frame, prompt, context, t):
         depth = self.depth_model.predict(frame, self.midas_weight)
-
+        device = self.device
+        # Fallback to CPU on mps, rotation transform fails because of int64 prams
+        if self.device.type == "mps":
+            device = torch.device("cpu")
         TRANSLATION_SCALE = 1.0 / 200.0  # matches Disco
         translate_xyz = [
             -self.func_tool.parametric_eval(context["translation_x"], t) * TRANSLATION_SCALE,
@@ -47,7 +50,7 @@ class Animator3D(Animator):
             # FIXME no-op for now, not encoded yet
             0, 0, 0
         ]
-        rot_mat = p3d.euler_angles_to_matrix(torch.tensor(rotate_xyz, device=self.device), "XYZ").unsqueeze(0)
+        rot_mat = p3d.euler_angles_to_matrix(torch.tensor(rotate_xyz, device=device), "XYZ").unsqueeze(0)
         logging.info(f"Applying 3D transform with translate mat {translate_xyz}, rotate mat {rotate_xyz}")
         result = self.transform_image_3d(frame, depth, rot_mat, translate_xyz, context)
         torch.cuda.empty_cache()

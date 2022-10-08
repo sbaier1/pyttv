@@ -71,6 +71,7 @@ mechanisms:
       # Type of animation to apply between frames, if any
       animation: 3D
       # Parameters for the animation
+      # parameters handled in Animator3D class
       animation_parameters:
         translation_x: 0
         translation_y: 0
