@@ -2,6 +2,7 @@ import logging
 import typing
 
 import torch
+from PIL import Image
 from ldm.util import instantiate_from_config
 from omegaconf import OmegaConf
 from pytorch_lightning import seed_everything
@@ -27,15 +28,18 @@ class TurboStableDiff(Mechanism):
                                           args=DeforumArgs(dict(config), root_config))
         # Counter how many frames this instance has generated
         self.index = 0
-        self.anim_wrapper = T2IAnimatedWrapper(config, root_config, func_util, self.actual_generate)
+        self.anim_wrapper = T2IAnimatedWrapper(config, root_config, func_util, self.actual_generate, self)
 
         # TODO resume last frame
         # path = os.path.join(args.outdir,f"{args.timestring}_{last_frame:05}.png")
         # img = cv2.imread(path)
         # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-    def is_turbo_step(self):
-        return self.index % (self.config["turbo_steps"] + 1) == 0
+    def is_turbo_step(self, t):
+        if self.index % (self.config["turbo_steps"] + 1) == 0:
+            return {"is_turbo_step": 0}
+        else:
+            return {"is_turbo_step": 1}
 
     def generate(self, config, context, prompt, t):
         return self.anim_wrapper.generate(config, context, prompt, t)
@@ -61,7 +65,10 @@ class TurboStableDiff(Mechanism):
         }
         args.update(self.config)
         args.update(config)
-        strength_evaluated = self.func_util.parametric_eval(config.get("strength_schedule"), t)
+        if "strength" in context:
+            strength_evaluated = context["strength"]
+        else:
+            strength_evaluated = self.func_util.parametric_eval(config.get("strength_schedule"), t)
 
         if "prev_image" in context or len(self.interpolation_frames) > 0:
             prev_image = sample_from_cv2(context["prev_image"])
@@ -75,22 +82,26 @@ class TurboStableDiff(Mechanism):
             args["strength"] = strength_evaluated
             # TODO: can dynamic thresholding be useful? more testing needed. static seed?
             # args["dynamic_threshold"] = 1
-        if self.index % (self.config["turbo_steps"] + 1) == 0:
-            # Standard step
-            logging.info(f"Standard step at index {self.index}, steps: {args['steps']}")
-            samples, image = self.utils.generate(args, return_sample=True)
+        if strength_evaluated >= 1 and "prev_image" in context:
+            self.index = self.index + 1
+            logging.info(f"Strength evaluated to 1, skipping diffusion")
+            return Image.fromarray(context["prev_image"]), {
+                "prev_samples": sample_from_cv2(context["prev_image"])
+            }
         else:
-            # Turbo step
-            logging.info(f"Turbo step at index {self.index}, steps: {args['turbo_sampling_steps']}")
-            args["steps"] = args["turbo_sampling_steps"]
-            samples, image = self.utils.generate(args, return_sample=True)
-
-
-        self.index = self.index + 1
-
-        return image, {
-            "prev_samples": samples,
-        }
+            if self.index % (self.config["turbo_steps"] + 1) == 0:
+                # Standard step
+                logging.info(f"Standard step at index {self.index}, steps: {args['steps']}")
+                samples, image = self.utils.generate(args, return_sample=True)
+            else:
+                # Turbo step
+                logging.info(f"Turbo step at index {self.index}, steps: {args['turbo_sampling_steps']}")
+                args["steps"] = args["turbo_sampling_steps"]
+                samples, image = self.utils.generate(args, return_sample=True)
+            self.index = self.index + 1
+            return image, {
+                "prev_samples": samples,
+            }
 
     def destroy(self):
         super().destroy()

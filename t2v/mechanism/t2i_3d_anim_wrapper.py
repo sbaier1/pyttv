@@ -83,10 +83,10 @@ class T2IAnimatedWrapper(Mechanism):
 
         # Call wrapped model to generate the next frame
         if "wrapped_context" in context:
-            # TODO: have to pass in the current strength during interpolations here somewhere/somehow
+            context["strength"] = strength_evaluated
             image, context = self.mechanism_callback(merged_config, context["wrapped_context"], prompt, t)
         else:
-            image, context = self.mechanism_callback(merged_config, {}, prompt, t)
+            image, context = self.mechanism_callback(merged_config, {"strength": strength_evaluated}, prompt, t)
 
         if self.color_match_sample is None and len(self.interpolation_frames) == 0:
             self.color_match_sample = np.array(image)
@@ -128,7 +128,7 @@ class T2IAnimatedWrapper(Mechanism):
                 previous_image = np.asarray(
                     self.blend_frames(Image.open(interpolation_frame), previous_image, factor))
             else:
-                previous_image = np.asarray(Image.open(interpolation_frame))
+                raise RuntimeError("Interpolations must always have a previous image")
             # modulate the denoising strength while the interpolation is ongoing to retain more of the interpolation frames
             # the 1.5 factor ensures we go to the minimum clamped strength so a full transition to the new scene can be
             # made without retaining some features of the previous scene forever.
@@ -141,6 +141,4 @@ class T2IAnimatedWrapper(Mechanism):
             self.interpolation_prev_prompt = None
             # Reset color matching again so we can start over fresh with the new scene now
             self.color_match_sample = None
-            # Set the strength very low intentionally so the new scene can properly influence the image now and we don't retain too much over time
-            return previous_image, 0.2
         return previous_image, strength_evaluated

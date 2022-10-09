@@ -77,10 +77,11 @@ class Runner:
         #  Must find and load them in that case.
         interpolation_frames = []
         prev_prompt = None
+        last_context = {}
         for i in range(self.scene_offset, len(self.cfg.scenes)):
             scene = self.cfg.scenes[i]
             logging.info(f"Rendering scene with prompt {scene.prompt}")
-            last_context = self.handle_scene(scene, self.t, interpolation_frames, prev_prompt)
+            last_context = self.handle_scene(scene, self.t, interpolation_frames, prev_prompt, last_context)
             # Remove interpolation frames from prev scene, if any
             interpolation_frames = []
             # Get interpolation frames, if any
@@ -111,9 +112,9 @@ class Runner:
         return int(duration / frame_seconds)
 
     def handle_scene(self, scene: Scene, offset,
-                     interpolation_frames, prev_prompt=None):
+                     interpolation_frames, prev_prompt=None, init_context={}):
         mechanism = self.get_or_initialize_mechanism(scene)
-        context = {}
+        context = init_context
         while (self.t - float(offset)) < parse_time(scene.duration).seconds:
             logging.debug(f"Rendering overall frame {self.frame} in scene with prompt {scene.prompt}")
             context = self.generate_and_save_frame(context, mechanism, scene,

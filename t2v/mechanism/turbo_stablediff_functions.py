@@ -303,7 +303,7 @@ class TurboStableDiffUtils:
 
         # Don't we need k samplers here too?
         sampler = PLMSSampler(self.model) if args["sampler"] == 'plms' else DDIMSampler(self.model)
-        model_wrap = CompVisDenoiser(self.model)
+        model_wrap = CompVisDenoiser(self.model, quantize=True)
         batch_size = args["n_samples"]
         prompt = args["prompt"]
         assert prompt is not None
