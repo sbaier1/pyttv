@@ -2,7 +2,7 @@ import os
 import typing
 
 import numpy as np
-from PIL.Image import Image
+from PIL import Image
 from omegaconf import DictConfig
 
 from t2v.animation.func_tools import FuncUtil
@@ -52,7 +52,10 @@ class T2IAnimatedWrapper(Mechanism):
         strength_evaluated = self.func_util.parametric_eval(merged_config.get("strength_schedule"), t)
         # common Img2Img pipeline
         if "prev_image" in context or len(self.interpolation_frames) > 0:
-            previous_image = context["prev_image"]
+            if "prev_image" in context:
+                previous_image = context["prev_image"]
+            else:
+                previous_image = None
             # Interpolate
             previous_image, strength_evaluated = self.interpolate(merged_config, previous_image, strength_evaluated, t)
             # Warp
@@ -80,11 +83,12 @@ class T2IAnimatedWrapper(Mechanism):
 
         # Call wrapped model to generate the next frame
         if "wrapped_context" in context:
+            # TODO: have to pass in the current strength during interpolations here somewhere/somehow
             image, context = self.mechanism_callback(merged_config, context["wrapped_context"], prompt, t)
         else:
             image, context = self.mechanism_callback(merged_config, {}, prompt, t)
 
-        if self.color_match_sample is None:
+        if self.color_match_sample is None and len(self.interpolation_frames) == 0:
             self.color_match_sample = np.array(image)
         return image, {
             "prev_image": image,
