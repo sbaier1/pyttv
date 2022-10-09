@@ -15,15 +15,13 @@ import torchvision.transforms.functional as TF
 from PIL import Image
 from einops import rearrange, repeat
 from k_diffusion.external import CompVisDenoiser
-from pytorch_lightning import seed_everything
+from ldm.models.diffusion.ddim import DDIMSampler
+from ldm.models.diffusion.plms import PLMSSampler
 from skimage.exposure import match_histograms
 from torch import autocast
 
 from t2v.config.root import RootConfig
-from t2v.mechanism.helpers_stablediff.depth import DepthModel
 from t2v.mechanism.helpers_stablediff.k_samplers import sampler_fn
-from ldm.models.diffusion.ddim import DDIMSampler
-from ldm.models.diffusion.plms import PLMSSampler
 
 
 def DeforumArgs(params: dict, root_config: RootConfig):
@@ -140,7 +138,7 @@ def sample_to_cv2(sample: torch.Tensor, type=np.uint8) -> np.ndarray:
 
 
 def add_noise(sample: torch.Tensor, noise_amt: float) -> torch.Tensor:
-    return sample - (noise_amt/2) + torch.randn(sample.shape, device=sample.device) * noise_amt
+    return sample - (noise_amt / 2) + torch.randn(sample.shape, device=sample.device) * noise_amt
 
 
 def get_output_folder(output_path, batch_folder):
@@ -809,4 +807,52 @@ def maintain_colors(prev_img, color_match_sample, mode):
 
 # Effectively the same as PILs blend function but for cv2 style matrices
 def cv2_blend(im1, im2, alpha):
-    return cv2.addWeighted(im1, 1-alpha, im2, alpha, 0)
+    return cv2.addWeighted(im1, 1 - alpha, im2, alpha, 0)
+
+
+# For creating subseeds, stolen from automatic1111's fork
+def create_random_tensors(shape, seed, subseed, subseed_strength, device,
+                          p=None):
+    xs = []
+
+    sampler_noises = None
+
+    noise_shape = shape
+
+    torch.manual_seed(subseed)
+    subnoise = torch.randn(noise_shape)
+
+    torch.manual_seed(seed)
+    noise = torch.randn(noise_shape)
+
+    if subnoise is not None:
+        noise = slerp(subseed_strength, noise, subnoise)
+
+    # if sampler_noises is not None:
+    #    cnt = p.sampler.number_of_needed_noises(p)
+
+    #    for j in range(cnt):
+    #        sampler_noises[j].append(torch.randn(tuple(noise_shape)))
+
+    xs.append(noise)
+
+    # if sampler_noises is not None:
+    #    p.sampler.sampler_noises = [torch.stack(n).to(shared.device) for n in sampler_noises]
+
+    x = torch.stack(xs).to(device)
+    return x
+
+
+# from https://discuss.pytorch.org/t/help-regarding-slerp-function-for-generative-model-sampling/32475/3
+def slerp(val, low, high):
+    low_norm = low / torch.norm(low, dim=1, keepdim=True)
+    high_norm = high / torch.norm(high, dim=1, keepdim=True)
+    dot = (low_norm * high_norm).sum(1)
+
+    if dot.mean() > 0.9995:
+        return low * val + high * (1 - val)
+
+    omega = torch.acos(dot)
+    so = torch.sin(omega)
+    res = (torch.sin((1.0 - val) * omega) / so).unsqueeze(1) * low + (torch.sin(val * omega) / so).unsqueeze(1) * high
+    return res

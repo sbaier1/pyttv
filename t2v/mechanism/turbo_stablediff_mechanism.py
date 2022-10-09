@@ -9,7 +9,7 @@ from pytorch_lightning import seed_everything
 
 from t2v.mechanism.mechanism import Mechanism
 from t2v.mechanism.turbo_stablediff_functions import DeforumArgs, TurboStableDiffUtils, sample_to_cv2, sample_from_cv2, \
-    add_noise, maintain_colors
+    add_noise, maintain_colors, create_random_tensors
 
 
 class TurboStableDiff(Mechanism):
@@ -38,7 +38,7 @@ class TurboStableDiff(Mechanism):
 
     def generate(self, config, context, prompt, t):
         # TODO: seed method should be configurable
-        seed_everything(self.config["seed"] + self.index)
+        seed_everything(self.config["seed"] + (self.index % 5))
         args = dict(self.config)
         # Overlay base config with overrides from current scene
         if config is not None:
