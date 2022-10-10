@@ -35,6 +35,9 @@ class FuncUtil:
                 output = eval(string, self.math_env)
             except SyntaxError as e:
                 raise RuntimeError("Error in parametric value " + string)
+            except TypeError as e:
+                raise RuntimeError(
+                    f"Could not evaluate string {string}, missing variable? variables in context: {self.math_env}")
             self.eval_memo[string] = output
             return output
         else:

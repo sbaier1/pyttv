@@ -107,6 +107,13 @@ class T2IAnimatedWrapper(Mechanism):
         return None
 
     def interpolate(self, config, previous_image, strength_evaluated, t):
+        """
+        Naive/generic interpolation (t2i approach-agnostic):
+        * generate extra frames from prev. scene for the interpolation duration
+        * blend the frames with the previous scene in a slope when generating the next one
+        * disable color matching during transition
+        * optionally increase the denoising strength in the same slope during the process to improve the transition
+        """
         # TODO: this naive image blending doesn't work very well yet.
         #        - does it make sense / is it possible to weighted-condition the prompt on the previous one?
         #        - can we have multiple init samples for img2img during the interpolation to make them more alike? can those be weighted?

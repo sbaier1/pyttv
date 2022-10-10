@@ -158,9 +158,16 @@ class ApiMechanism(Mechanism):
         self.root_config = root_config
         self.config = config
         self.func_util = func_util
+        func_util.add_callback("isTurboStep", self.is_turbo_step)
         self.host = self.config.get("host")
         self.index = 0
         self.anim_wrapper = T2IAnimatedWrapper(config, root_config, func_util, self.actual_generate, self)
+
+    def is_turbo_step(self, t):
+        if self.index % (self.config["turbo_steps"] + 1) == 0:
+            return {"is_turbo_step": 0}
+        else:
+            return {"is_turbo_step": 1}
 
     def generate(self, config: DictConfig, context, prompt: str, t):
         return self.anim_wrapper.generate(config, context, prompt, t)
@@ -175,22 +182,24 @@ class ApiMechanism(Mechanism):
         # TODO: this incorrectly permanently overrides the config
         # config.get("txt2img_params").update(steps=config.get("turbo_sampling_steps"))
         if "prev_image" not in context:
-            img = self._txt2img(prompt, config)
+            img = self._txt2img(prompt, config, t)
         else:
             image_array = context["prev_image"]
             # Contrast adjust test
             # im_mean = np.mean(noised_sample)
             # noised_sample = (noised_sample - im_mean) * 0.9 + im_mean
-            img = self._img2img(prompt, config, Image.fromarray(image_array))
+            img = self._img2img(prompt, config, Image.fromarray(image_array), t)
         self.index = self.index + 1
         return img, {
             "prev_frame": np.array(img).astype(np.uint8)
         }
 
-    def _txt2img(self, prompt: str, config_param: DictConfig):
-        body = TXT2IMG.format(prompt=prompt, **config_param.get("txt2img_params"),
-                              seed=config_param.get("seed") + self.index, W=self.root_config.width,
-                              H=self.root_config.height)
+    def _txt2img(self, prompt: str, config_param: DictConfig, t):
+        config_param.update(seed=config_param.get("seed") + self.index)
+        body = TXT2IMG.format(prompt=prompt, **config_param,
+                              W=self.root_config.width,
+                              H=self.root_config.height,
+                              strength=self.func_util.parametric_eval(config_param.get("strength_schedule"), t))
         res = requests.post(f"{self.host}/api/predict/",
                             data=body)
         if res.status_code == 200:
@@ -204,16 +213,19 @@ class ApiMechanism(Mechanism):
             logging.error(f"Original request body: {body}")
             raise RuntimeError("Unexpected non-200 exit code")
 
-    def _img2img(self, prompt: str, config_param: DictConfig, img: Image):
+    def _img2img(self, prompt: str, config_param: DictConfig, img: Image, t):
         # Encode image
         buffered = io.BytesIO()
         img.save(buffered, format="PNG")
 
         # clip off the "byte" indicators in the result string
         img_str = str(base64.b64encode(buffered.getvalue()))[2:-1]
-        body = IMG2IMG.format(prompt=prompt, **config_param.get("img2img_params"), pngbase64=img_str,
-                              seed=config_param.get("seed") + self.index, W=self.root_config.width,
-                              H=self.root_config.height)
+        config_param.update(seed=config_param.get("seed") + self.index)
+        body = IMG2IMG.format(prompt=prompt, **config_param,
+                              pngbase64=img_str,
+                              W=self.root_config.width,
+                              H=self.root_config.height,
+                              strength=self.func_util.parametric_eval(config_param.get("strength_schedule"), t))
         res = requests.post(f"{self.host}/api/predict/",
                             data=body)
         if res.status_code == 200:
