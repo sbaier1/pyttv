@@ -32,6 +32,7 @@ class Mechanism:
         self.interpolation_frames = []
         self.interpolation_index = 0
         self.interpolation_prev_prompt = None
+        self.interpolation_ongoing = False
 
     def generate(self, config: DictConfig, context, prompt: str, t):
         """
@@ -57,6 +58,7 @@ class Mechanism:
         self.interpolation_frames = interpolation_frames
         self.interpolation_index = 0
         self.interpolation_prev_prompt = prev_prompt
+        self.interpolation_ongoing = True
 
     def reset_scene_state(self):
         """

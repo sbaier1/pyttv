@@ -177,14 +177,6 @@ class ApiMechanism(Mechanism):
         # TODO: template out the queries, run txt2img, decode the image
         # TODO: on subsequent steps, run img2img, encode the previous frame as base64 and use as input
         # TODO: warping code from other mechanism
-        # A new scene just started, initialize if necessary
-        has_start_seed = False
-        if self.scene_init:
-            # The new scene contains a specific override seed (i.e. an "init latent"),
-            # make sure we start exactly from the one the user specified
-            if "seed" in config:
-                self.index = 0
-                has_start_seed = True
         # Start with the root (default) config
         config_copy = dict(self.config.copy())
         # Overlay the scene-specific params if necessary
@@ -195,6 +187,25 @@ class ApiMechanism(Mechanism):
         else:
             # Invert input strength because it works the other way round in this mechanism
             config_copy.update({"strength": 1 - context['strength']})
+
+        # TODO: key latents don't work here atm. img2img is too different from txt2img with scaled latents.
+        #   idea: implement img2img module for automatic1111 for slerping between prompts, use that to generate all interpolation frames and write them directly.
+        if "interpolation_ongoing" in context and context["interpolation_ongoing"] and "seed" in config:
+            # keep index at 0 during the interpolation in this case to make sure we interpolate towards that desired frame
+            self.index = 0
+        if "interpolation_end" in context and context["interpolation_end"] and "seed" in config:
+            # Start with a completely fresh frame with the desired seed here,
+            # this is the condition for a "key latent" with a preceding interpolation
+            self.index = 0
+            # Make sure we run a txt2img instead of an img2img to get the image the user wants to see at this point
+            del context["prev_image"]
+
+        # A new scene just started, initialize if necessary
+        if self.scene_init:
+            # The new scene contains a specific override seed (i.e. an "init latent"),
+            # make sure we start exactly from the one the user specified
+            if "seed" in config:
+                self.index = 0
         # TODO proper config overlaying
         config_copy.update(
             {

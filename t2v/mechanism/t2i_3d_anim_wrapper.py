@@ -51,13 +51,14 @@ class T2IAnimatedWrapper(Mechanism):
 
         strength_evaluated = self.func_util.parametric_eval(merged_config.get("strength_schedule"), t)
         # common Img2Img pipeline
+        interpolation_end = False
         if "prev_image" in context or len(self.interpolation_frames) > 0:
             if "prev_image" in context:
                 previous_image = context["prev_image"]
             else:
                 previous_image = None
             # Interpolate
-            previous_image, strength_evaluated = self.interpolate(merged_config, previous_image, strength_evaluated, t)
+            previous_image, strength_evaluated, interpolation_end = self.interpolate(merged_config, previous_image, strength_evaluated, t)
             # Warp
             warped_frame = self.animator.apply(np.array(previous_image), prompt,
                                                merged_config.get("animation_parameters"), t)
@@ -84,6 +85,9 @@ class T2IAnimatedWrapper(Mechanism):
         # Call wrapped model to generate the next frame
         if "wrapped_context" in context:
             context["wrapped_context"]["strength"] = strength_evaluated
+            # Mark interpolation end for mechanisms that want to handle this state
+            context["wrapped_context"]["interpolation_end"] = interpolation_end
+            context["wrapped_context"]["interpolation_ongoing"] = self.interpolation_ongoing
             image, context = self.mechanism_callback(merged_config, context["wrapped_context"], prompt, t)
         else:
             image, context = self.mechanism_callback(merged_config, {"strength": strength_evaluated}, prompt, t)
@@ -114,11 +118,8 @@ class T2IAnimatedWrapper(Mechanism):
         * disable color matching during transition
         * optionally increase the denoising strength in the same slope during the process to improve the transition
         """
-        # TODO: this naive image blending doesn't work very well yet.
-        #        - does it make sense / is it possible to weighted-condition the prompt on the previous one?
-        #        - can we have multiple init samples for img2img during the interpolation to make them more alike? can those be weighted?
-        #        - does it make sense to have a sloped denoising reduction during the interpolation to keep more of the interpolation frames?
-        if len(self.interpolation_frames) > 0 and self.interpolation_index < len(self.interpolation_frames):
+        interpolation_ended = False
+        if self.interpolation_ongoing and len(self.interpolation_frames) > 0 and self.interpolation_index < len(self.interpolation_frames):
             # Disable color matching during the interpolation, so we don't force-keep the previous scene color profile
             self.color_match_sample = None
             interpolation_frame = self.interpolation_frames[self.interpolation_index]
@@ -139,13 +140,14 @@ class T2IAnimatedWrapper(Mechanism):
             # modulate the denoising strength while the interpolation is ongoing to retain more of the interpolation frames
             # the 1.5 factor ensures we go to the minimum clamped strength so a full transition to the new scene can be
             # made without retaining some features of the previous scene forever.
-            strength_evaluated = min(1.0, max(0.1, strength_evaluated + ((1 - (factor * 1.2)) * 0.6)))
+            strength_evaluated = min(1.0, max(0.1, strength_evaluated + ((1 - (factor * 1.5)) * 0.6)))
             self.interpolation_index = self.interpolation_index + 1
-        elif self.interpolation_index == len(self.interpolation_frames):
+        elif self.interpolation_ongoing and self.interpolation_index == len(self.interpolation_frames):
             # Interpolation finished, mark end, ensure this doesn't get called again
             self.interpolation_index = len(self.interpolation_frames) + 1
             self.interpolation_frames = []
             self.interpolation_prev_prompt = None
             # Reset color matching again so we can start over fresh with the new scene now
             self.color_match_sample = None
-        return previous_image, strength_evaluated
+            interpolation_ended = True
+        return previous_image, strength_evaluated, interpolation_ended
