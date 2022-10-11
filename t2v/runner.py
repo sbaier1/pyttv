@@ -158,7 +158,7 @@ class Runner:
         return None
 
     def initialize_additional_context(self):
-        if self.cfg.additional_context is not None:
+        if "additional_context" in self.cfg and self.cfg.additional_context is not None:
             reactivity_config = self.cfg.additional_context.audio_reactivity
             if reactivity_config is not None:
                 logging.info("Initializing audio reactivity...")

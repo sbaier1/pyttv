@@ -90,23 +90,19 @@ mechanisms:
     mechanism_parameters:
       host: http://localhost:7860
       seed: 123456
-      # Additional parameters to format the txt2img request body template with (prompt is auto-filled)
-      txt2img_params:
-        steps: 20
-        # Euler a, LMS, ...
-        sampler: LMS
-        scale: 7.0
-        W: 768
-        H: 512
-      img2img_params:
-        steps: 20
-        # Euler a, LMS, ...
-        sampler: LMS
-        scale: 7.0
-        W: 768
-        H: 512
-        # This is denoising strength here, lower = better flow
-        strength: 0.45
+      # How many turbo steps (lower amount of sampling steps) to run in-between "full sized" frames
+      turbo_steps: 4
+      # How many sampling steps to run for a turbo frame
+      turbo_sampling_steps: 20
+      # Noise schedule (how much noise to add to in-between frames), can be a function or static
+      noise_schedule: 0.02
+
+      steps: 40
+      # Euler a, LMS, ...
+      sampler: Euler a
+      scale: 9.5
+      # This is denoising strength here, lower = better flow
+      strength_schedule: 1-(min(1.0, (0.7)+(is_turbo_step*0.15))) #(sin(6*t)**20)*0.2
       # Type of animation to apply between frames, if any
       animation: 3D
       # Parameters for the animation

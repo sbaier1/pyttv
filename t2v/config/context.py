@@ -18,5 +18,5 @@ class AudioReactivityConfig:
 
 @dataclass
 class AdditionalContextConfig:
-    audio_reactivity: AudioReactivityConfig
+    audio_reactivity: AudioReactivityConfig = None
 

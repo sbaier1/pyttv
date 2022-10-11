@@ -20,4 +20,4 @@ class RootConfig:
     torch_device: str
     output_path: str
     persistence_dir: str
-    additional_context: AdditionalContextConfig
+    additional_context: AdditionalContextConfig = None

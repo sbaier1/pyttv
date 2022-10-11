@@ -15,13 +15,13 @@ from t2v.mechanism.mechanism import Mechanism
 import requests
 
 from t2v.mechanism.t2i_3d_anim_wrapper import T2IAnimatedWrapper
-# Generated with revision f7c787eb7c295c27439f4fbdf78c26b8389560be,
+# Generated with revision d4ea5f4d8631f778d11efcde397e4a5b8801d43b,
 # diff the template with a captured query of a more recent version to update these when necessary
 from t2v.mechanism.turbo_stablediff_functions import add_noise, sample_from_cv2, sample_to_cv2, maintain_colors
 
 TXT2IMG = """
 {{
-"fn_index": 11,
+"fn_index": 12,
   "data": [
     "{prompt}",
     "",
@@ -42,9 +42,9 @@ TXT2IMG = """
     false,
     {H},
     {W},
-    false,
-    false,
-    0.7,
+    true,
+    true,
+    0.9,
     "None",
     false,
     false,
@@ -66,7 +66,7 @@ TXT2IMG = """
 
 IMG2IMG = """
 {{
-"fn_index": 29,
+"fn_index": 31,
     "data": [
         0,
         "{prompt}",
@@ -162,6 +162,7 @@ class ApiMechanism(Mechanism):
         self.host = self.config.get("host")
         self.index = 0
         self.anim_wrapper = T2IAnimatedWrapper(config, root_config, func_util, self.actual_generate, self)
+        self.scene_init = True
 
     def is_turbo_step(self, t):
         if self.index % (self.config["turbo_steps"] + 1) == 0:
@@ -176,30 +177,58 @@ class ApiMechanism(Mechanism):
         # TODO: template out the queries, run txt2img, decode the image
         # TODO: on subsequent steps, run img2img, encode the previous frame as base64 and use as input
         # TODO: warping code from other mechanism
+        # A new scene just started, initialize if necessary
+        has_start_seed = False
+        if self.scene_init:
+            # The new scene contains a specific override seed (i.e. an "init latent"),
+            # make sure we start exactly from the one the user specified
+            if "seed" in config:
+                self.index = 0
+                has_start_seed = True
+        # Start with the root (default) config
+        config_copy = dict(self.config.copy())
+        # Overlay the scene-specific params if necessary
+        if config is not None:
+            config_copy.update(config)
+        if "strength" not in context:
+            config_copy.update({"strength": self.func_util.parametric_eval(config.get("strength_schedule"), t)})
+        else:
+            # Invert input strength because it works the other way round in this mechanism
+            config_copy.update({"strength": 1 - context['strength']})
+        # TODO proper config overlaying
+        config_copy.update(
+            {
+                "W": self.root_config.width,
+                "H": self.root_config.height,
+                "prompt": prompt,
+                # Offset the seed
+                "seed": config_copy["seed"] + self.index,
+            }
+        )
+        if self.index % (config_copy["turbo_steps"] + 1) != 0:
+            # Turbo step, override steps params
+            config_copy.update({"steps": config_copy.get("turbo_sampling_steps")})
 
-        # if self.index % (self.config["turbo_steps"] + 1) != 0:
-        # Turbo step, override steps params
-        # TODO: this incorrectly permanently overrides the config
-        # config.get("txt2img_params").update(steps=config.get("turbo_sampling_steps"))
+        logging.info(f"Config map for api mechanism {config_copy}")
+        # TODO: if the scene has an init seed: discard the prev image and run txt2img if interpolation is 0,
+        #  or track interpolation progress and run the txt2img with the start seed at the end of the interpolation
         if "prev_image" not in context:
-            img = self._txt2img(prompt, config, t)
+            img = self._txt2img(config_copy)
         else:
             image_array = context["prev_image"]
             # Contrast adjust test
             # im_mean = np.mean(noised_sample)
             # noised_sample = (noised_sample - im_mean) * 0.9 + im_mean
-            img = self._img2img(prompt, config, Image.fromarray(image_array), t)
+            img = self._img2img(config_copy, Image.fromarray(image_array))
         self.index = self.index + 1
+        # If this was an initialization frame, the next one must not be anymore
+        self.scene_init = False
         return img, {
             "prev_frame": np.array(img).astype(np.uint8)
         }
 
-    def _txt2img(self, prompt: str, config_param: DictConfig, t):
-        config_param.update(seed=config_param.get("seed") + self.index)
-        body = TXT2IMG.format(prompt=prompt, **config_param,
-                              W=self.root_config.width,
-                              H=self.root_config.height,
-                              strength=self.func_util.parametric_eval(config_param.get("strength_schedule"), t))
+    def _txt2img(self, config_param: dict):
+        body = TXT2IMG.format(**config_param)
         res = requests.post(f"{self.host}/api/predict/",
                             data=body)
         if res.status_code == 200:
@@ -213,19 +242,15 @@ class ApiMechanism(Mechanism):
             logging.error(f"Original request body: {body}")
             raise RuntimeError("Unexpected non-200 exit code")
 
-    def _img2img(self, prompt: str, config_param: DictConfig, img: Image, t):
+    def _img2img(self, config_param: dict, img: Image):
         # Encode image
         buffered = io.BytesIO()
         img.save(buffered, format="PNG")
 
         # clip off the "byte" indicators in the result string
         img_str = str(base64.b64encode(buffered.getvalue()))[2:-1]
-        config_param.update(seed=config_param.get("seed") + self.index)
-        body = IMG2IMG.format(prompt=prompt, **config_param,
-                              pngbase64=img_str,
-                              W=self.root_config.width,
-                              H=self.root_config.height,
-                              strength=self.func_util.parametric_eval(config_param.get("strength_schedule"), t))
+        body = IMG2IMG.format(**config_param,
+                              pngbase64=img_str)
         res = requests.post(f"{self.host}/api/predict/",
                             data=body)
         if res.status_code == 200:
@@ -242,6 +267,7 @@ class ApiMechanism(Mechanism):
 
     def reset_scene_state(self):
         self.anim_wrapper.reset_scene_state()
+        self.scene_init = True
 
     def destroy(self):
         super().destroy()

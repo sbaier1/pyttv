@@ -83,7 +83,7 @@ class T2IAnimatedWrapper(Mechanism):
 
         # Call wrapped model to generate the next frame
         if "wrapped_context" in context:
-            context["strength"] = strength_evaluated
+            context["wrapped_context"]["strength"] = strength_evaluated
             image, context = self.mechanism_callback(merged_config, context["wrapped_context"], prompt, t)
         else:
             image, context = self.mechanism_callback(merged_config, {"strength": strength_evaluated}, prompt, t)
@@ -123,7 +123,7 @@ class T2IAnimatedWrapper(Mechanism):
             self.color_match_sample = None
             interpolation_frame = self.interpolation_frames[self.interpolation_index]
             interpolation_function = config.get("interpolation_function")
-            percentage = float(self.interpolation_index / len(self.interpolation_frames))
+            percentage = float((self.interpolation_index + 1) / len(self.interpolation_frames))
             if interpolation_function is not None:
                 # 0..1 percentage how far along the interpolation is
                 factor = self.func_util.parametric_eval(interpolation_function, t, x=percentage)
@@ -139,7 +139,7 @@ class T2IAnimatedWrapper(Mechanism):
             # modulate the denoising strength while the interpolation is ongoing to retain more of the interpolation frames
             # the 1.5 factor ensures we go to the minimum clamped strength so a full transition to the new scene can be
             # made without retaining some features of the previous scene forever.
-            strength_evaluated = min(1.0, max(0.1, strength_evaluated + ((1 - (factor * 1.5)) * 0.6)))
+            strength_evaluated = min(1.0, max(0.1, strength_evaluated + ((1 - (factor * 1.2)) * 0.6)))
             self.interpolation_index = self.interpolation_index + 1
         elif self.interpolation_index == len(self.interpolation_frames):
             # Interpolation finished, mark end, ensure this doesn't get called again
