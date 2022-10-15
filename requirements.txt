@@ -4,6 +4,7 @@ git+https://github.com/crowsonkb/k-diffusion@master
 -e git+https://github.com/CompVis/taming-transformers.git@master#egg=taming-transformers
 # git+https://github.com/CompVis/stable-diffusion.git@master#egg=latent-diffusion
 pytorch-lightning==1.7.4
+hydra-core
 torchtext==0.13.1
 torchmetrics==0.9.3
 transformers==4.21.2
@@ -17,7 +18,7 @@ resize-right
 timm~=0.6.7
 torchdiffeq
 numpy~=1.22.3
-opencv-python~=4.5.5.64
+opencv-python~=4.6.0
 onnx~=1.12.0
 onnxruntime~=1.12.1
 torch~=1.12.0.dev20220504
@@ -32,4 +33,4 @@ scikit-image~=0.19.2
 # Beat detection
 librosa
 # "Full" music transcription and context, warning this pulls in a complete transitive dependency hell
-omnizart
+#omnizart

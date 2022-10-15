@@ -15,13 +15,13 @@ from t2v.mechanism.mechanism import Mechanism
 import requests
 
 from t2v.mechanism.t2i_3d_anim_wrapper import T2IAnimatedWrapper
-# Generated with revision d4ea5f4d8631f778d11efcde397e4a5b8801d43b,
+# Generated with revision 0aec19d7837d8564355fdb286541db7165852e41,
 # diff the template with a captured query of a more recent version to update these when necessary
 from t2v.mechanism.turbo_stablediff_functions import add_noise, sample_from_cv2, sample_to_cv2, maintain_colors
 
 TXT2IMG = """
 {{
-"fn_index": 12,
+"fn_index": 13,
   "data": [
     "{prompt}",
     "",
@@ -42,9 +42,10 @@ TXT2IMG = """
     false,
     {H},
     {W},
-    true,
-    true,
-    0.9,
+    {hires_fix_enabled},
+    {hires_denoising_strength},
+    {W_init},
+    {H_init},
     "None",
     false,
     false,
@@ -52,12 +53,12 @@ TXT2IMG = """
     "",
     "Seed",
     "",
-    "Steps",
+    "Nothing",
     "",
     true,
     false,
+    false,
     null,
-    "",
     ""
   ],
   "session_hash": "djrqd1giwif"
@@ -66,7 +67,7 @@ TXT2IMG = """
 
 IMG2IMG = """
 {{
-"fn_index": 31,
+"fn_index": 33,
     "data": [
         0,
         "{prompt}",
@@ -104,9 +105,14 @@ IMG2IMG = """
         "",
         "None",
         "",
+        true,
+        true,
         "",
-        1,
+        "",
+        true,
         50,
+        true,
+        1,
         0,
         false,
         4,
@@ -140,9 +146,10 @@ IMG2IMG = """
         "None",
         "Seed",
         "",
-        "Steps",
+        "Nothing",
         "",
         true,
+        false,
         false,
         null,
         "",
@@ -216,6 +223,25 @@ class ApiMechanism(Mechanism):
                 "seed": config_copy["seed"] + self.index,
             }
         )
+        # Threshold for enabling highres fix
+        if self.root_config.width > 576 or self.root_config.height > 576:
+            max_comp = max(self.root_config.width, self.root_config.height)
+            divisor = max_comp // 512
+            aspect_ratio = max(self.root_config.width/self.root_config.height, self.root_config.height/self.root_config.width)
+            larger_comp_scaled = (max_comp // divisor)
+            config_copy.update({
+                "hires_fix_enabled": "true",
+                "H_init": 512 if self.root_config.height < self.root_config.width else larger_comp_scaled,
+                "W_init": 512 if self.root_config.height > self.root_config.width else larger_comp_scaled,
+                "hires_denoising_strength": 0.9
+            })
+        else:
+            config_copy.update({
+                "hires_fix_enabled": "false",
+                "H_init": 512,
+                "W_init": 512,
+                "hires_denoising_strength": 0.9
+            })
         if self.index % (config_copy["turbo_steps"] + 1) != 0:
             # Turbo step, override steps params
             config_copy.update({"steps": config_copy.get("turbo_sampling_steps")})
@@ -246,8 +272,8 @@ class ApiMechanism(Mechanism):
             json = res.json()
             # We just assume the expected format for now. Errors in the format received from the API lead to crashes.
             # Remove prefix: data:image/png;base64,
-            image = base64.b64decode(json['data'][0][0][22:])
-            return Image.open(io.BytesIO(image))
+            image = json['data'][0][0]['name']
+            return Image.open(image)
         else:
             logging.error(f"API request failed, response code {res.status_code}, response body: {res.raw}")
             logging.error(f"Original request body: {body}")
@@ -267,7 +293,8 @@ class ApiMechanism(Mechanism):
         if res.status_code == 200:
             json = res.json()
             # We just assume the expected format for now. Errors in the format received from the API lead to crashes.
-            return Image.open(io.BytesIO(base64.b64decode(json['data'][0][0][22:])))
+            image = json['data'][0][0]['name']
+            return Image.open(image)
         else:
             logging.error(f"API request failed, response code {res.status_code}, response body: {res.json()}")
             logging.error(f"Original request body: {body}")
