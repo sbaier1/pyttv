@@ -1,6 +1,7 @@
 import base64
 import io
 import logging
+import typing
 
 import numpy as np
 from PIL import Image
@@ -13,13 +14,14 @@ from t2v.mechanism.mechanism import Mechanism
 
 import requests
 
-# Generated with revision e22ea454a273b3a8a807a5acb2e6f0d0d41c9aa7,
+from t2v.mechanism.t2i_3d_anim_wrapper import T2IAnimatedWrapper
+# Generated with revision 0aec19d7837d8564355fdb286541db7165852e41,
 # diff the template with a captured query of a more recent version to update these when necessary
 from t2v.mechanism.turbo_stablediff_functions import add_noise, sample_from_cv2, sample_to_cv2, maintain_colors
 
 TXT2IMG = """
 {{
-"fn_index": 12,
+"fn_index": 13,
   "data": [
     "{prompt}",
     "",
@@ -40,21 +42,23 @@ TXT2IMG = """
     false,
     {H},
     {W},
-    false,
-    false,
-    0.7,
+    {hires_fix_enabled},
+    {hires_denoising_strength},
+    {W_init},
+    {H_init},
     "None",
     false,
+    false,
     null,
     "",
-    false,
     "Seed",
     "",
-    "Steps",
+    "Nothing",
     "",
     true,
+    false,
+    false,
     null,
-    "",
     ""
   ],
   "session_hash": "djrqd1giwif"
@@ -63,7 +67,7 @@ TXT2IMG = """
 
 IMG2IMG = """
 {{
-"fn_index": 30,
+"fn_index": 33,
     "data": [
         0,
         "{prompt}",
@@ -101,9 +105,14 @@ IMG2IMG = """
         "",
         "None",
         "",
+        true,
+        true,
         "",
-        1,
+        "",
+        true,
         50,
+        true,
+        1,
         0,
         false,
         4,
@@ -129,19 +138,21 @@ IMG2IMG = """
             "down"
         ],
         false,
+        false,
         null,
         "",
-        false,
         "",
         64,
         "None",
         "Seed",
         "",
-        "Steps",
+        "Nothing",
         "",
         true,
         false,
+        false,
         null,
+        "",
         ""
 ],
 "session_hash": "djrqd1giwif"
@@ -154,86 +165,147 @@ class ApiMechanism(Mechanism):
         self.root_config = root_config
         self.config = config
         self.func_util = func_util
+        func_util.add_callback("isTurboStep", self.is_turbo_step)
         self.host = self.config.get("host")
         self.index = 0
-        self.color_match_sample = None
+        self.anim_wrapper = T2IAnimatedWrapper(config, root_config, func_util, self.actual_generate, self)
+        self.scene_init = True
+
+    def is_turbo_step(self, t):
+        if self.index % (self.config["turbo_steps"] + 1) == 0:
+            return {"is_turbo_step": 0}
+        else:
+            return {"is_turbo_step": 1}
 
     def generate(self, config: DictConfig, context, prompt: str, t):
+        return self.anim_wrapper.generate(config, context, prompt, t)
+
+    def actual_generate(self, config: DictConfig, context, prompt: str, t):
         # TODO: template out the queries, run txt2img, decode the image
         # TODO: on subsequent steps, run img2img, encode the previous frame as base64 and use as input
         # TODO: warping code from other mechanism
-
-        # TODO move into base class method
-        # TODO not sure if this works as intended for nested dicts
-        # config overlaying
+        # Start with the root (default) config
+        config_copy = dict(self.config.copy())
+        # Overlay the scene-specific params if necessary
         if config is not None:
-            config_param = self.config.copy()
-            config_param.update(config)
+            config_copy.update(config)
+        if "strength" not in context:
+            config_copy.update({"strength": self.func_util.parametric_eval(config.get("strength_schedule"), t)})
         else:
-            config_param = self.config
-        if self.index % (self.config["turbo_steps"] + 1) != 0:
+            # Invert input strength because it works the other way round in this mechanism
+            config_copy.update({"strength": 1 - context['strength']})
+
+        # TODO: key latents don't work here atm. img2img is too different from txt2img with scaled latents.
+        #   idea: implement img2img module for automatic1111 for slerping between prompts, use that to generate all interpolation frames and write them directly.
+        if "interpolation_ongoing" in context and context["interpolation_ongoing"] and "seed" in config:
+            # keep index at 0 during the interpolation in this case to make sure we interpolate towards that desired frame
+            self.index = 0
+        if "interpolation_end" in context and context["interpolation_end"] and "seed" in config:
+            # Start with a completely fresh frame with the desired seed here,
+            # this is the condition for a "key latent" with a preceding interpolation
+            self.index = 0
+            # Make sure we run a txt2img instead of an img2img to get the image the user wants to see at this point
+            del context["prev_image"]
+
+        # A new scene just started, initialize if necessary
+        if self.scene_init:
+            # The new scene contains a specific override seed (i.e. an "init latent"),
+            # make sure we start exactly from the one the user specified
+            if "seed" in config:
+                self.index = 0
+        # TODO proper config overlaying
+        config_copy.update(
+            {
+                "W": self.root_config.width,
+                "H": self.root_config.height,
+                "prompt": prompt,
+                # Offset the seed
+                "seed": config_copy["seed"] + self.index,
+            }
+        )
+        # Threshold for enabling highres fix
+        if self.root_config.width > 576 or self.root_config.height > 576:
+            max_comp = max(self.root_config.width, self.root_config.height)
+            divisor = max_comp // 512
+            aspect_ratio = max(self.root_config.width/self.root_config.height, self.root_config.height/self.root_config.width)
+            larger_comp_scaled = (max_comp // divisor)
+            config_copy.update({
+                "hires_fix_enabled": "true",
+                "H_init": 512 if self.root_config.height < self.root_config.width else larger_comp_scaled,
+                "W_init": 512 if self.root_config.height > self.root_config.width else larger_comp_scaled,
+                "hires_denoising_strength": 0.9
+            })
+        else:
+            config_copy.update({
+                "hires_fix_enabled": "false",
+                "H_init": 512,
+                "W_init": 512,
+                "hires_denoising_strength": 0.9
+            })
+        if self.index % (config_copy["turbo_steps"] + 1) != 0:
             # Turbo step, override steps params
-            config_param.get("txt2img_params").update(steps=config_param.get("turbo_sampling_steps"))
-        if "prev_frame" not in context:
-            img = self._txt2img(prompt, config_param)
+            config_copy.update({"steps": config_copy.get("turbo_sampling_steps")})
+
+        logging.info(f"Config map for api mechanism {config_copy}")
+        # TODO: if the scene has an init seed: discard the prev image and run txt2img if interpolation is 0,
+        #  or track interpolation progress and run the txt2img with the start seed at the end of the interpolation
+        if "prev_image" not in context:
+            img = self._txt2img(config_copy)
         else:
-            prev_frame = context["prev_frame"]
-            image_array = np.array(prev_frame).astype(np.uint8)
-            warped_frame = self.animator.apply(image_array, prompt,
-                                               self.config.get("animation_parameters"), t)
-            noised_sample = add_noise(sample_from_cv2(warped_frame),
-                                      self.func_util.parametric_eval(config_param.get("noise_schedule"), t))
-            noised_sample = sample_to_cv2(noised_sample)
-            if self.color_match_sample is not None:
-                noised_sample = maintain_colors(noised_sample, self.color_match_sample, 'Match Frame 0 LAB')
-            else:
-                self.color_match_sample = noised_sample
+            image_array = context["prev_image"]
             # Contrast adjust test
-            im_mean = np.mean(noised_sample)
-            noised_sample = (noised_sample - im_mean) * 0.9 + im_mean
-            img = self._img2img(prompt, config_param, Image.fromarray(noised_sample.astype(np.uint8)))
+            # im_mean = np.mean(noised_sample)
+            # noised_sample = (noised_sample - im_mean) * 0.9 + im_mean
+            img = self._img2img(config_copy, Image.fromarray(image_array))
         self.index = self.index + 1
+        # If this was an initialization frame, the next one must not be anymore
+        self.scene_init = False
         return img, {
-            "prev_frame": img
+            "prev_frame": np.array(img).astype(np.uint8)
         }
 
-    def _txt2img(self, prompt: str, config_param: DictConfig):
-        body = TXT2IMG.format(prompt=prompt, **config_param.get("txt2img_params"),
-                              seed=config_param.get("seed")+self.index, W=self.root_config.width,
-                              H=self.root_config.height)
+    def _txt2img(self, config_param: dict):
+        body = TXT2IMG.format(**config_param)
         res = requests.post(f"{self.host}/api/predict/",
                             data=body)
         if res.status_code == 200:
             json = res.json()
             # We just assume the expected format for now. Errors in the format received from the API lead to crashes.
             # Remove prefix: data:image/png;base64,
-            image = base64.b64decode(json['data'][0][0][22:])
-            return Image.open(io.BytesIO(image))
+            image = json['data'][0][0]['name']
+            return Image.open(image)
         else:
             logging.error(f"API request failed, response code {res.status_code}, response body: {res.raw}")
             logging.error(f"Original request body: {body}")
             raise RuntimeError("Unexpected non-200 exit code")
 
-    def _img2img(self, prompt: str, config_param: DictConfig, img: Image):
+    def _img2img(self, config_param: dict, img: Image):
         # Encode image
         buffered = io.BytesIO()
         img.save(buffered, format="PNG")
 
         # clip off the "byte" indicators in the result string
         img_str = str(base64.b64encode(buffered.getvalue()))[2:-1]
-        body = IMG2IMG.format(prompt=prompt, **config_param.get("img2img_params"), pngbase64=img_str,
-                              seed=config_param.get("seed") + self.index, W=self.root_config.width,
-                              H=self.root_config.height)
+        body = IMG2IMG.format(**config_param,
+                              pngbase64=img_str)
         res = requests.post(f"{self.host}/api/predict/",
                             data=body)
         if res.status_code == 200:
             json = res.json()
             # We just assume the expected format for now. Errors in the format received from the API lead to crashes.
-            return Image.open(io.BytesIO(base64.b64decode(json['data'][0][0][22:])))
+            image = json['data'][0][0]['name']
+            return Image.open(image)
         else:
             logging.error(f"API request failed, response code {res.status_code}, response body: {res.json()}")
             logging.error(f"Original request body: {body}")
             raise RuntimeError("Unexpected non-200 exit code")
+
+    def set_interpolation_state(self, interpolation_frames: typing.List[str], prev_prompt: str = None):
+        self.anim_wrapper.set_interpolation_state(interpolation_frames, prev_prompt)
+
+    def reset_scene_state(self):
+        self.anim_wrapper.reset_scene_state()
+        self.scene_init = True
 
     def destroy(self):
         super().destroy()

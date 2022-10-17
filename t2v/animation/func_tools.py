@@ -29,12 +29,15 @@ class FuncUtil:
             self.math_env["t"] = t
             for callback in self.callbacks.keys():
                 callback_result = self.callbacks[callback](t)
-                logging.info(f"func callback invocation result for {callback}: {callback_result}")
+                logging.debug(f"func callback invocation result for {callback}: {callback_result}")
                 self.math_env.update(callback_result)
             try:
                 output = eval(string, self.math_env)
             except SyntaxError as e:
                 raise RuntimeError("Error in parametric value " + string)
+            except TypeError as e:
+                raise RuntimeError(
+                    f"Could not evaluate string {string}, missing variable? variables in context: {self.math_env}")
             self.eval_memo[string] = output
             return output
         else:

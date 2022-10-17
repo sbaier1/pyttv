@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyttv_sbaier1"
+version = "0.1.0"
+authors = [
+    { name="Simon Baier" },
+]
+description = "A tool for making animations using generative models"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+[tool.setuptools.packages.find]
+where = ["."]  # list of folders that contain the packages (["."] by default)
+include = ["*"]  #
+
+[project.urls]
+"Homepage" = "https://github.com/sbaier1/pyttv"
+"Bug Tracker" = "https://github.com/sbaier1/pyttv/issues"

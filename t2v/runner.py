@@ -1,10 +1,10 @@
 import logging
 import os
 import re
+from datetime import timedelta
 
 from omegaconf import OmegaConf
 
-from t2v.animation.animator_3d import Animator3D
 from t2v.animation.audio_parse import SpectralAudioParser
 from t2v.animation.audio_parse_beats import BeatAudioParser
 from t2v.animation.func_tools import FuncUtil
@@ -14,8 +14,6 @@ from t2v.mechanism.api_mechanism import ApiMechanism
 from t2v.mechanism.noop_mechanism import NoopMechanism
 from t2v.mechanism.turbo_stablediff_mechanism import TurboStableDiff
 
-from datetime import timedelta
-
 INTERPOLATE_DIRECTORY = "_interpolate"
 
 time_regex = re.compile(
@@ -24,16 +22,16 @@ time_regex = re.compile(
 TYPE_SPECTRAL = "spectral"
 TYPE_LIBROSA = "beats-librosa"
 
+mechanism_types = {
+    TurboStableDiff.name(): TurboStableDiff,
+    NoopMechanism.name(): NoopMechanism,
+    ApiMechanism.name(): ApiMechanism
+}
 
 class Runner:
     def __init__(self, cfg: RootConfig):
         # Register mechanisms
         self.func_util = FuncUtil()
-        self.mechanism_types = {
-            TurboStableDiff.name(): TurboStableDiff,
-            NoopMechanism.name(): NoopMechanism,
-            ApiMechanism.name(): ApiMechanism
-        }
         self.cfg = cfg
         # Stores instantiated mechanism objects by their name within the config
         self.mechanisms = {}
@@ -77,10 +75,11 @@ class Runner:
         #  Must find and load them in that case.
         interpolation_frames = []
         prev_prompt = None
+        last_context = {}
         for i in range(self.scene_offset, len(self.cfg.scenes)):
             scene = self.cfg.scenes[i]
             logging.info(f"Rendering scene with prompt {scene.prompt}")
-            last_context = self.handle_scene(scene, self.t, interpolation_frames, prev_prompt)
+            last_context = self.handle_scene(scene, self.t, interpolation_frames, prev_prompt, last_context)
             # Remove interpolation frames from prev scene, if any
             interpolation_frames = []
             # Get interpolation frames, if any
@@ -111,9 +110,9 @@ class Runner:
         return int(duration / frame_seconds)
 
     def handle_scene(self, scene: Scene, offset,
-                     interpolation_frames, prev_prompt=None):
+                     interpolation_frames, prev_prompt=None, init_context={}):
         mechanism = self.get_or_initialize_mechanism(scene)
-        context = {}
+        context = init_context
         while (self.t - float(offset)) < parse_time(scene.duration).seconds:
             logging.debug(f"Rendering overall frame {self.frame} in scene with prompt {scene.prompt}")
             context = self.generate_and_save_frame(context, mechanism, scene,
@@ -141,7 +140,7 @@ class Runner:
         mechanism_config = self._get_mechanism_config(mechanism_name)
         if mechanism_config is None:
             raise RuntimeError(f"Mechanism {mechanism_name} is not defined in the config")
-        cls = self.mechanism_types.get(mechanism_config.type)
+        cls = mechanism_types.get(mechanism_config.type)
         if cls is None:
             raise RuntimeError(f"Mechanism type {mechanism_config.type} is not implemented")
         # instantiate the impl class
@@ -157,7 +156,7 @@ class Runner:
         return None
 
     def initialize_additional_context(self):
-        if self.cfg.additional_context is not None:
+        if "additional_context" in self.cfg and self.cfg.additional_context is not None:
             reactivity_config = self.cfg.additional_context.audio_reactivity
             if reactivity_config is not None:
                 logging.info("Initializing audio reactivity...")
