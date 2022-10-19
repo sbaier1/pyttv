@@ -58,7 +58,8 @@ class T2IAnimatedWrapper(Mechanism):
             else:
                 previous_image = None
             # Interpolate
-            previous_image, strength_evaluated, interpolation_end = self.interpolate(merged_config, previous_image, strength_evaluated, t)
+            previous_image, strength_evaluated, interpolation_end = self.interpolate(merged_config, previous_image,
+                                                                                     strength_evaluated, t)
             # Warp
             warped_frame = self.animator.apply(np.array(previous_image), prompt,
                                                merged_config.get("animation_parameters"), t)
@@ -80,6 +81,10 @@ class T2IAnimatedWrapper(Mechanism):
             noised_image = sample_to_cv2(noised_sample)
             if "wrapped_context" in context:
                 context["wrapped_context"]["prev_image"] = noised_image
+            else:
+                context["wrapped_context"] = {
+                    "prev_image": noised_image
+                }
         self.index = self.index + 1
 
         # Call wrapped model to generate the next frame
@@ -119,7 +124,8 @@ class T2IAnimatedWrapper(Mechanism):
         * optionally increase the denoising strength in the same slope during the process to improve the transition
         """
         interpolation_ended = False
-        if self.interpolation_ongoing and len(self.interpolation_frames) > 0 and self.interpolation_index < len(self.interpolation_frames):
+        if self.interpolation_ongoing and len(self.interpolation_frames) > 0 and self.interpolation_index < len(
+                self.interpolation_frames):
             # Disable color matching during the interpolation, so we don't force-keep the previous scene color profile
             self.color_match_sample = None
             interpolation_frame = self.interpolation_frames[self.interpolation_index]

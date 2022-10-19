@@ -3,6 +3,8 @@ import os
 import re
 from datetime import timedelta
 
+import numpy as np
+from PIL import Image
 from omegaconf import OmegaConf
 
 from t2v.animation.audio_parse import SpectralAudioParser
@@ -28,6 +30,7 @@ mechanism_types = {
     ApiMechanism.name(): ApiMechanism
 }
 
+
 class Runner:
     def __init__(self, cfg: RootConfig):
         # Register mechanisms
@@ -41,31 +44,9 @@ class Runner:
         # Interpolation frames subdirectory
         os.makedirs(os.path.join(path, INTERPOLATE_DIRECTORY), exist_ok=True)
         offset = 0
-        for dirpath, _, fnames in sorted(os.walk(path)):
-            for fname in sorted(fnames):
-                # TODO: stupid resume counting for now. Match the filename pattern also
-                if fname.endswith(".png"):
-                    offset = offset + 1
-        if offset > 0:
-            self.frame = offset
-            self.t = float(offset) / float(self.cfg.frames_per_second)
-            t_buffer = 0
-            scene_idx = 0
-            for scene in cfg.scenes:
-                scene_duration_seconds = parse_time(scene.duration).seconds
-                if scene_duration_seconds > self.t + t_buffer:
-                    # This is the scene we're resuming
-                    break
-                else:
-                    t_buffer = t_buffer + scene_duration_seconds
-                    scene_idx = scene_idx + 1
-            self.scene_offset = scene_idx
-            # TODO load the last frame as init?
-
-        else:
-            self.frame = 0
-            self.t = float(0)
-            self.scene_offset = 0
+        self.frame = 0
+        self.t = float(0)
+        self.scene_offset = 0
         # TODO: ensure/create output dir
         self.initialize_additional_context()
 
@@ -83,7 +64,7 @@ class Runner:
             # Remove interpolation frames from prev scene, if any
             interpolation_frames = []
             # Get interpolation frames, if any
-            if i < len(self.cfg.scenes)-1:
+            if i < len(self.cfg.scenes) - 1:
                 interpolation_duration = parse_time(self.cfg.scenes[i + 1].interpolation)
                 context = last_context
                 if i < len(self.cfg.scenes) - 1 and interpolation_duration.total_seconds() > 0:
@@ -113,13 +94,34 @@ class Runner:
                      interpolation_frames, prev_prompt=None, init_context={}):
         mechanism = self.get_or_initialize_mechanism(scene)
         context = init_context
+        prev_frame_path = None
+        has_fast_forwarded = False
         while (self.t - float(offset)) < parse_time(scene.duration).seconds:
-            logging.debug(f"Rendering overall frame {self.frame} in scene with prompt {scene.prompt}")
-            context = self.generate_and_save_frame(context, mechanism, scene,
-                                                   os.path.join(self.output_path, f"{self.frame:05}.png"))
-            # TODO: write frame to disk
+
+            prev_frame_path = os.path.join(self.output_path, f"{self.frame - 1:05}.png")
+            current_frame_path = os.path.join(self.output_path, f"{self.frame:05}.png")
+            if not os.path.exists(current_frame_path):
+                logging.info(f"Rendering overall frame {self.frame} in scene with prompt {scene.prompt}")
+                if has_fast_forwarded:
+                    # Inject prev frame
+                    # noinspection PyTypeChecker
+                    context["prev_image"] = np.array(Image.open(prev_frame_path)).astype(np.uint8)
+                context = self.generate_and_save_frame(context, mechanism, scene,
+                                                       current_frame_path)
+            else:
+                logging.info(f"Winding past frame {self.frame:05} because it already exists on disk")
+                mechanism.skip_frame()
+                has_fast_forwarded = True
+
             self.frame = self.frame + 1
             self.t = (self.frame / self.cfg.frames_per_second)
+
+        # If the scene has ended we're still going to inject this at the end
+        # to make sure the interpolation logic will work if necessary
+        if has_fast_forwarded:
+            # Inject prev frame
+            # noinspection PyTypeChecker
+            context["prev_image"] = np.array(Image.open(prev_frame_path)).astype(np.uint8)
         return context
 
     def get_or_initialize_mechanism(self, scene):

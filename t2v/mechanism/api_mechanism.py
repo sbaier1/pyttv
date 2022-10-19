@@ -15,7 +15,7 @@ from t2v.mechanism.mechanism import Mechanism
 import requests
 
 from t2v.mechanism.t2i_3d_anim_wrapper import T2IAnimatedWrapper
-# Generated with revision 0aec19d7837d8564355fdb286541db7165852e41,
+# Generated with revision 604620a7f08d1126a8689f9f4bec8ade0801a69b,
 # diff the template with a captured query of a more recent version to update these when necessary
 from t2v.mechanism.turbo_stablediff_functions import add_noise, sample_from_cv2, sample_to_cv2, maintain_colors
 
@@ -137,6 +137,17 @@ IMG2IMG = """
             "up",
             "down"
         ],
+        "",    
+        true,
+        true,
+        "",
+        "",
+        true,
+        50,
+        true,
+        1,
+        0,
+        false,
         false,
         false,
         null,
@@ -180,6 +191,9 @@ class ApiMechanism(Mechanism):
     def generate(self, config: DictConfig, context, prompt: str, t):
         return self.anim_wrapper.generate(config, context, prompt, t)
 
+    def skip_frame(self):
+        self.index = self.index + 1
+
     def actual_generate(self, config: DictConfig, context, prompt: str, t):
         # TODO: template out the queries, run txt2img, decode the image
         # TODO: on subsequent steps, run img2img, encode the previous frame as base64 and use as input
@@ -190,13 +204,14 @@ class ApiMechanism(Mechanism):
         if config is not None:
             config_copy.update(config)
         if "strength" not in context:
-            config_copy.update({"strength": self.func_util.parametric_eval(config.get("strength_schedule"), t)})
+            config_copy.update({"strength": 1 - self.func_util.parametric_eval(config.get("strength_schedule"), t)})
         else:
             # Invert input strength because it works the other way round in this mechanism
             config_copy.update({"strength": 1 - context['strength']})
 
         # TODO: key latents don't work here atm. img2img is too different from txt2img with scaled latents.
         #   idea: implement img2img module for automatic1111 for slerping between prompts, use that to generate all interpolation frames and write them directly.
+        #   idea(easier?): generate the key latent image first, then run img2img between prev prompt with down-sloping denoising (denoise 0 in last step to finish transition)
         if "interpolation_ongoing" in context and context["interpolation_ongoing"] and "seed" in config:
             # keep index at 0 during the interpolation in this case to make sure we interpolate towards that desired frame
             self.index = 0
@@ -227,19 +242,20 @@ class ApiMechanism(Mechanism):
         if self.root_config.width > 576 or self.root_config.height > 576:
             max_comp = max(self.root_config.width, self.root_config.height)
             divisor = max_comp // 512
-            aspect_ratio = max(self.root_config.width/self.root_config.height, self.root_config.height/self.root_config.width)
+            aspect_ratio = max(self.root_config.width / self.root_config.height,
+                               self.root_config.height / self.root_config.width)
             larger_comp_scaled = (max_comp // divisor)
             config_copy.update({
                 "hires_fix_enabled": "true",
-                "H_init": 512 if self.root_config.height < self.root_config.width else larger_comp_scaled,
-                "W_init": 512 if self.root_config.height > self.root_config.width else larger_comp_scaled,
+                "H_init": 0,
+                "W_init": 0,
                 "hires_denoising_strength": 0.9
             })
         else:
             config_copy.update({
                 "hires_fix_enabled": "false",
-                "H_init": 512,
-                "W_init": 512,
+                "H_init": 0,
+                "W_init": 0,
                 "hires_denoising_strength": 0.9
             })
         if self.index % (config_copy["turbo_steps"] + 1) != 0:

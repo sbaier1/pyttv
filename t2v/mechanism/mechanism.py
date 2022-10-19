@@ -37,6 +37,10 @@ class Mechanism:
     def generate(self, config: DictConfig, context, prompt: str, t):
         """
         Generate a frame with the mechanism
+
+        Impl note: Previous frames in the context dict should be numpy uint8 arrays,
+         so the runner can inject frames for resuming
+
         :param prompt: prompt to generate frames for
         :param config: configuration of the mechanism
         :param context: context from the previous generation, if any
@@ -63,6 +67,11 @@ class Mechanism:
     def reset_scene_state(self):
         """
         Marks the end of a scene to the mechanism. It can reset its scene-specific state here
+        """
+
+    def skip_frame(self):
+        """
+        Another method for stateful mechanisms: indicates that the state handling should be "fast-forwarded" without generating a frame.
         """
 
     @staticmethod
