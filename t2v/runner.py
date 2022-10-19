@@ -74,8 +74,11 @@ class Runner:
                         # Get the interpolation frames:
                         # These are additional, initially unused frames from the current scene.
                         frame_path = os.path.join(self.output_path, INTERPOLATE_DIRECTORY, f"{i:02}_{k:05}.png")
-                        context = self.generate_and_save_frame(context, mechanism,
-                                                               scene, frame_path)
+                        if not os.path.exists(frame_path):
+                            context = self.generate_and_save_frame(context, mechanism,
+                                                                   scene, frame_path)
+                        else:
+                            mechanism.skip_frame()
                         interpolation_frames.append(frame_path)
                     prev_prompt = scene.prompt
                     mechanism.set_interpolation_state(interpolation_frames, prev_prompt)
