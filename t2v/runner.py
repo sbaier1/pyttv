@@ -108,7 +108,7 @@ class Runner:
                 if has_fast_forwarded:
                     # Inject prev frame
                     # noinspection PyTypeChecker
-                    context["prev_image"] = np.array(Image.open(prev_frame_path)).astype(np.uint8)
+                    context["prev_image"] = Image.open(prev_frame_path)
                 context = self.generate_and_save_frame(context, mechanism, scene,
                                                        current_frame_path)
             else:
@@ -124,7 +124,7 @@ class Runner:
         if has_fast_forwarded:
             # Inject prev frame
             # noinspection PyTypeChecker
-            context["prev_image"] = np.array(Image.open(prev_frame_path)).astype(np.uint8)
+            context["prev_image"] = Image.open(prev_frame_path)
         return context
 
     def get_or_initialize_mechanism(self, scene):

@@ -193,6 +193,7 @@ class ApiMechanism(Mechanism):
 
     def skip_frame(self):
         self.index = self.index + 1
+        self.anim_wrapper.skip_frame()
 
     def actual_generate(self, config: DictConfig, context, prompt: str, t):
         # TODO: template out the queries, run txt2img, decode the image

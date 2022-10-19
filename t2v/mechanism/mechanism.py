@@ -38,7 +38,7 @@ class Mechanism:
         """
         Generate a frame with the mechanism
 
-        Impl note: Previous frames in the context dict should be numpy uint8 arrays,
+        Impl note: Previous frames in the context dict should be a PIL image,
          so the runner can inject frames for resuming
 
         :param prompt: prompt to generate frames for

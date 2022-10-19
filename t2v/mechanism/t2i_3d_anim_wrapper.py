@@ -1,17 +1,14 @@
 import os
-import typing
 
+import cv2
 import numpy as np
 from PIL import Image
 from omegaconf import DictConfig
 
 from t2v.animation.func_tools import FuncUtil
 from t2v.config.root import RootConfig
-
 from t2v.mechanism.mechanism import Mechanism
 from t2v.mechanism.turbo_stablediff_functions import sample_to_cv2, maintain_colors, sample_from_cv2, add_noise
-
-import cv2
 
 
 class T2IAnimatedWrapper(Mechanism):
@@ -104,6 +101,15 @@ class T2IAnimatedWrapper(Mechanism):
             "wrapped_context": context
         }
 
+    def skip_frame(self):
+        self.index = self.index + 1
+        if self.interpolation_ongoing \
+                and len(self.interpolation_frames) > 0 \
+                and self.interpolation_index < len(self.interpolation_frames):
+            self.interpolation_index = self.interpolation_index + 1
+        elif self.interpolation_ongoing and self.interpolation_index == len(self.interpolation_frames):
+            self.stop_interpolation()
+
     def destroy(self):
         super().destroy()
 
@@ -149,11 +155,14 @@ class T2IAnimatedWrapper(Mechanism):
             strength_evaluated = min(1.0, max(0.1, strength_evaluated + ((1 - (factor * 1.5)) * 0.6)))
             self.interpolation_index = self.interpolation_index + 1
         elif self.interpolation_ongoing and self.interpolation_index == len(self.interpolation_frames):
-            # Interpolation finished, mark end, ensure this doesn't get called again
-            self.interpolation_index = len(self.interpolation_frames) + 1
-            self.interpolation_frames = []
-            self.interpolation_prev_prompt = None
-            # Reset color matching again so we can start over fresh with the new scene now
-            self.color_match_sample = None
+            self.stop_interpolation()
             interpolation_ended = True
         return previous_image, strength_evaluated, interpolation_ended
+
+    def stop_interpolation(self):
+        # Interpolation finished, mark end, ensure this doesn't get called again
+        self.interpolation_index = len(self.interpolation_frames) + 1
+        self.interpolation_frames = []
+        self.interpolation_prev_prompt = None
+        # Reset color matching again so we can start over fresh with the new scene now
+        self.color_match_sample = None
