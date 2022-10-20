@@ -213,9 +213,6 @@ class ApiMechanism(Mechanism):
         # TODO: key latents don't work here atm. img2img is too different from txt2img with scaled latents.
         #   idea: implement img2img module for automatic1111 for slerping between prompts, use that to generate all interpolation frames and write them directly.
         #   idea(easier?): generate the key latent image first, then run img2img between prev prompt with down-sloping denoising (denoise 0 in last step to finish transition)
-        if "interpolation_ongoing" in context and context["interpolation_ongoing"] and "seed" in config:
-            # keep index at 0 during the interpolation in this case to make sure we interpolate towards that desired frame
-            self.index = 0
         if "interpolation_end" in context and context["interpolation_end"] and "seed" in config:
             # Start with a completely fresh frame with the desired seed here,
             # this is the condition for a "key latent" with a preceding interpolation

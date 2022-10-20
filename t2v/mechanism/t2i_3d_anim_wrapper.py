@@ -38,7 +38,7 @@ class T2IAnimatedWrapper(Mechanism):
     def generate(self, config: DictConfig, context, prompt: str, t):
         super().generate(config, context, prompt, t)
         # Overlay config
-        merged_config = self.config.copy()
+        merged_config = dict(self.config.copy())
         if config is not None:
             merged_config.update(config)
 
@@ -152,7 +152,7 @@ class T2IAnimatedWrapper(Mechanism):
             # modulate the denoising strength while the interpolation is ongoing to retain more of the interpolation frames
             # the 1.5 factor ensures we go to the minimum clamped strength so a full transition to the new scene can be
             # made without retaining some features of the previous scene forever.
-            strength_evaluated = min(1.0, max(0.1, strength_evaluated + ((1 - (factor * 1.5)) * 0.6)))
+            strength_evaluated = min(1.0, max(0.1, strength_evaluated * 0.4 + ((1 - (factor*1.9)) * 0.7)))
             self.interpolation_index = self.interpolation_index + 1
         elif self.interpolation_ongoing and self.interpolation_index == len(self.interpolation_frames):
             self.stop_interpolation()
