@@ -3,15 +3,14 @@ import os
 import re
 from datetime import timedelta
 
-import numpy as np
 from PIL import Image
 from omegaconf import OmegaConf
-
-from t2v.animation.audio_parse import SpectralAudioParser
 from t2v.animation.audio_parse_beats import BeatAudioParser
+
 from t2v.animation.func_tools import FuncUtil
 from t2v.config.root import RootConfig
 from t2v.config.scene import Scene
+from t2v.input.spectral_input import SpectralAudioParser
 from t2v.mechanism.api_mechanism import ApiMechanism
 from t2v.mechanism.noop_mechanism import NoopMechanism
 from t2v.mechanism.turbo_stablediff_mechanism import TurboStableDiff
@@ -30,6 +29,11 @@ mechanism_types = {
     ApiMechanism.name(): ApiMechanism
 }
 
+reactivity_types = {
+    "beats-librosa": BeatAudioParser,
+    "spectral": SpectralAudioParser,
+
+}
 
 class Runner:
     def __init__(self, cfg: RootConfig):
@@ -162,26 +166,12 @@ class Runner:
 
     def initialize_additional_context(self):
         if "additional_context" in self.cfg and self.cfg.additional_context is not None:
-            reactivity_config = self.cfg.additional_context.audio_reactivity
-            if reactivity_config is not None:
-                logging.info("Initializing audio reactivity...")
-                audio_input_file = reactivity_config.input_audio_file
-                audio_reactivity_type = reactivity_config.type
-                filters = reactivity_config.input_audio_filters
-                if audio_input_file is not None and audio_reactivity_type is not None:
-                    if audio_reactivity_type == TYPE_LIBROSA:
-                        logging.info(f"Initializing beat audio reactivity with input file {audio_input_file}...")
-                        audio_parser = BeatAudioParser(audio_input_file, self.cfg.frames_per_second,
-                                                       reactivity_config.input_audio_offset)
-                        self.func_util.add_callback("audio", audio_parser.get_params)
-                    elif audio_reactivity_type == TYPE_SPECTRAL and filters is not None and len(filters) > 0:
-                        logging.info(f"Initializing audio reactivity with input file {audio_input_file}...")
-                        audio_parser = SpectralAudioParser(audio_input_file, reactivity_config.input_audio_offset,
-                                                           self.cfg.frames_per_second, filters)
-                        self.func_util.add_callback("audio", audio_parser.get_params)
-                    else:
-                        logging.error(f"Could not initialize audio-reactivity, missing parameters or invalid type? "
-                                      f"Valid types: {TYPE_LIBROSA}, {TYPE_SPECTRAL}")
+            input_mechanisms = self.cfg.additional_context.input_mechanisms
+            for mechanism in input_mechanisms:
+                logging.info("Initializing input mechanisms...")
+                cls = reactivity_types.get(mechanism.type)
+                instance = cls(mechanism.mechanism_parameters, self.cfg)
+                self.func_util.add_callback(mechanism.type, instance.func_var_callback)
 
 
 def parse_time(time_str):

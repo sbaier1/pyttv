@@ -1,18 +1,22 @@
 import logging
+import typing
 
 import numpy as np
-import typing
 from librosa.beat import beat_track
-from t2v.animation.audio_parse import read_audio_signed16
+from omegaconf import DictConfig
+
+from t2v.config.root import RootConfig
+from t2v.input.input_mechanism import InputVariableMechanism
+from t2v.input.spectral_input import read_audio_signed16
 
 
-class BeatAudioParser:
-    def __init__(self,
-                 input_audio,
-                 frames_per_second,
-                 offset):
+class BeatAudioParser(InputVariableMechanism):
+    def __init__(self, config: DictConfig, root_config: RootConfig):
+        super().__init__(config, root_config)
+        input_audio = config["file"]
+        offset = config["offset"]
         self.audio_samples = read_audio_signed16(input_audio).astype(np.float32) / 32767
-        self.fps = frames_per_second
+        self.fps = root_config.frames_per_second
         logging.info(f"Getting beats for audio samples from {input_audio}...")
         self.beats = beat_track(y=self.audio_samples, sr=44100, units='time')
         logging.info(f"Detected BPM: {self.beats[0]}, beats found in audio at timestamps: {self.beats[1]}")
@@ -39,7 +43,7 @@ class BeatAudioParser:
                 return True
         return False
 
-    def get_params(self, t) -> typing.Dict[str, float]:
+    def func_var_callback(self, t) -> typing.Dict[str, float]:
         if self.is_beat(t):
             return {
                 "beat": 1.0
@@ -48,3 +52,6 @@ class BeatAudioParser:
             return {
                 "beat": 0.0
             }
+
+    def prompt_modulator_callback(self, t) -> typing.Dict[str, str]:
+        return super().prompt_modulator_callback(t)
