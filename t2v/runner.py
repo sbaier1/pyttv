@@ -5,11 +5,12 @@ from datetime import timedelta
 
 from PIL import Image
 from omegaconf import OmegaConf
-from t2v.animation.audio_parse_beats import BeatAudioParser
 
 from t2v.animation.func_tools import FuncUtil
 from t2v.config.root import RootConfig
 from t2v.config.scene import Scene
+from t2v.input.beats_input import BeatAudioParser
+from t2v.input.midi_input import MidiInput
 from t2v.input.spectral_input import SpectralAudioParser
 from t2v.mechanism.api_mechanism import ApiMechanism
 from t2v.mechanism.noop_mechanism import NoopMechanism
@@ -32,8 +33,9 @@ mechanism_types = {
 reactivity_types = {
     "beats-librosa": BeatAudioParser,
     "spectral": SpectralAudioParser,
-
+    "midi": MidiInput,
 }
+
 
 class Runner:
     def __init__(self, cfg: RootConfig):
@@ -116,7 +118,7 @@ class Runner:
                 context = self.generate_and_save_frame(context, mechanism, scene,
                                                        current_frame_path)
             else:
-                logging.info(f"Winding past frame {self.frame:05} because it already exists on disk")
+                logging.info(f"Skipping frame {self.frame:05} because it already exists on disk")
                 mechanism.skip_frame()
                 has_fast_forwarded = True
 

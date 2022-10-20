@@ -13,18 +13,18 @@ class InputVariableMechanism:
     def __init__(self, config: DictConfig, root_config: RootConfig):
         pass
 
-    def func_var_callback(self, t) -> typing.Dict[str, float]:
+    def func_var_callback(self, t) -> typing.Dict[str, object]:
         """
         The function var callback is invoked by the function util to retrieve
         the current set of parameters for modulating functions.
-        :return: the set of parameters as a dict that maps the variable name to the value
+        :return: the set of parameters as a dict that maps the variable name to the value. can include functions
         """
         return {}
 
-    def prompt_modulator_callback(self, t) -> typing.Dict[str, str]:
+    def prompt_modulator_callback(self, t) -> typing.Dict[str, object]:
         """
         The prompt modulator callback allows a mechanism to return text that can be used
         to modulate a prompt during a scene
-        :return: the set of parameters as a dict that maps the variable name to the value
+        :return: the set of parameters as a dict that maps the variable name to the value. can include functions
         """
         return {}

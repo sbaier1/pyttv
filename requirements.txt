@@ -32,5 +32,5 @@ requests~=2.25.1
 scikit-image~=0.19.2
 # Beat detection
 librosa
-# "Full" music transcription and context, warning this pulls in a complete transitive dependency hell
-#omnizart
+# Midi file input
+mido
