@@ -1,17 +1,14 @@
 import os
-import typing
 
+import cv2
 import numpy as np
 from PIL import Image
 from omegaconf import DictConfig
 
 from t2v.animation.func_tools import FuncUtil
 from t2v.config.root import RootConfig
-
 from t2v.mechanism.mechanism import Mechanism
 from t2v.mechanism.turbo_stablediff_functions import sample_to_cv2, maintain_colors, sample_from_cv2, add_noise
-
-import cv2
 
 
 class T2IAnimatedWrapper(Mechanism):
@@ -41,7 +38,7 @@ class T2IAnimatedWrapper(Mechanism):
     def generate(self, config: DictConfig, context, prompt: str, t):
         super().generate(config, context, prompt, t)
         # Overlay config
-        merged_config = self.config.copy()
+        merged_config = dict(self.config.copy())
         if config is not None:
             merged_config.update(config)
 
@@ -58,7 +55,8 @@ class T2IAnimatedWrapper(Mechanism):
             else:
                 previous_image = None
             # Interpolate
-            previous_image, strength_evaluated, interpolation_end = self.interpolate(merged_config, previous_image, strength_evaluated, t)
+            previous_image, strength_evaluated, interpolation_end = self.interpolate(merged_config, previous_image,
+                                                                                     strength_evaluated, t)
             # Warp
             warped_frame = self.animator.apply(np.array(previous_image), prompt,
                                                merged_config.get("animation_parameters"), t)
@@ -80,6 +78,10 @@ class T2IAnimatedWrapper(Mechanism):
             noised_image = sample_to_cv2(noised_sample)
             if "wrapped_context" in context:
                 context["wrapped_context"]["prev_image"] = noised_image
+            else:
+                context["wrapped_context"] = {
+                    "prev_image": noised_image
+                }
         self.index = self.index + 1
 
         # Call wrapped model to generate the next frame
@@ -98,6 +100,15 @@ class T2IAnimatedWrapper(Mechanism):
             "prev_image": image,
             "wrapped_context": context
         }
+
+    def skip_frame(self):
+        self.index = self.index + 1
+        if self.interpolation_ongoing \
+                and len(self.interpolation_frames) > 0 \
+                and self.interpolation_index < len(self.interpolation_frames):
+            self.interpolation_index = self.interpolation_index + 1
+        elif self.interpolation_ongoing and self.interpolation_index == len(self.interpolation_frames):
+            self.stop_interpolation()
 
     def destroy(self):
         super().destroy()
@@ -119,7 +130,8 @@ class T2IAnimatedWrapper(Mechanism):
         * optionally increase the denoising strength in the same slope during the process to improve the transition
         """
         interpolation_ended = False
-        if self.interpolation_ongoing and len(self.interpolation_frames) > 0 and self.interpolation_index < len(self.interpolation_frames):
+        if self.interpolation_ongoing and len(self.interpolation_frames) > 0 and self.interpolation_index < len(
+                self.interpolation_frames):
             # Disable color matching during the interpolation, so we don't force-keep the previous scene color profile
             self.color_match_sample = None
             interpolation_frame = self.interpolation_frames[self.interpolation_index]
@@ -140,14 +152,17 @@ class T2IAnimatedWrapper(Mechanism):
             # modulate the denoising strength while the interpolation is ongoing to retain more of the interpolation frames
             # the 1.5 factor ensures we go to the minimum clamped strength so a full transition to the new scene can be
             # made without retaining some features of the previous scene forever.
-            strength_evaluated = min(1.0, max(0.1, strength_evaluated + ((1 - (factor * 1.5)) * 0.6)))
+            strength_evaluated = min(1.0, max(0.1, strength_evaluated * 0.4 + ((1 - (factor*1.9)) * 0.7)))
             self.interpolation_index = self.interpolation_index + 1
         elif self.interpolation_ongoing and self.interpolation_index == len(self.interpolation_frames):
-            # Interpolation finished, mark end, ensure this doesn't get called again
-            self.interpolation_index = len(self.interpolation_frames) + 1
-            self.interpolation_frames = []
-            self.interpolation_prev_prompt = None
-            # Reset color matching again so we can start over fresh with the new scene now
-            self.color_match_sample = None
+            self.stop_interpolation()
             interpolation_ended = True
         return previous_image, strength_evaluated, interpolation_ended
+
+    def stop_interpolation(self):
+        # Interpolation finished, mark end, ensure this doesn't get called again
+        self.interpolation_index = len(self.interpolation_frames) + 1
+        self.interpolation_frames = []
+        self.interpolation_prev_prompt = None
+        # Reset color matching again so we can start over fresh with the new scene now
+        self.color_match_sample = None
