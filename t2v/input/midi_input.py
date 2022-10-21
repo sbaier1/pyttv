@@ -14,7 +14,11 @@ class MidiInput(InputVariableMechanism):
         self.fps = root_config.frames_per_second
         midifile = mido.MidiFile(config["file"])
         # TODO: allow arbitrary set_tempo events via config
-        midifile.tracks[0].insert(0, mido.MetaMessage('set_tempo', tempo=1000000, time=0))
+        if "tempo" in config:
+            tempo_override = config["tempo"]
+            # Convert tempo in bpm to quarter node period in microseconds
+            tempo_us = int(60 / tempo_override * 1_000_000)
+            midifile.tracks[0].insert(0, mido.MetaMessage('set_tempo', tempo=tempo_us, time=0))
         self.offset = 0 if "offset" not in config else config["offset"]
         offset = 0
         self.note_events = {}

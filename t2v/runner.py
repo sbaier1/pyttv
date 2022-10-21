@@ -60,7 +60,7 @@ class Runner:
 
     def run(self):
         logging.debug(f"Launching with config:\n{OmegaConf.to_yaml(self.cfg)}")
-        if self.cfg.simulate_output is not None:
+        if "simulate_output" in self.cfg:
             logging.info(f"Running in simulation mode. Saving result to {self.cfg.simulate_output}")
             duration = 0
             for scene in self.cfg.scenes:
@@ -215,4 +215,8 @@ def parse_time(time_str):
     for name, param in parts.items():
         if param:
             time_params[name] = int(param)
-    return timedelta(**time_params)
+    result = timedelta(**time_params)
+    if result.total_seconds() == 0:
+        logging.warning(f"Time string {time_str} evaluated to 0s. 0 durations typically don't need to be specified."
+                        f" (Could be a parser error)")
+    return result
