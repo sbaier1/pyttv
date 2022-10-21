@@ -1,7 +1,9 @@
+import csv
 import logging
 import os
 import re
 from datetime import timedelta
+from types import ModuleType
 
 from PIL import Image
 from omegaconf import OmegaConf
@@ -58,6 +60,34 @@ class Runner:
 
     def run(self):
         logging.debug(f"Launching with config:\n{OmegaConf.to_yaml(self.cfg)}")
+        if self.cfg.simulate_output is not None:
+            logging.info(f"Running in simulation mode. Saving result to {self.cfg.simulate_output}")
+            duration = 0
+            for scene in self.cfg.scenes:
+                self.get_or_initialize_mechanism(scene)
+                duration += parse_time(scene.duration).total_seconds()
+            frame_count = self.get_frame_count(duration)
+            with open(self.cfg.simulate_output, 'w') as csvfile:
+                csv_writer = csv.writer(csvfile)
+                # header
+                func_map = self.func_util.update_math_env(0)
+                dict_keys = ["t"]
+                for key in func_map.keys():
+                    val = func_map[key]
+                    if not isinstance(val, ModuleType) \
+                            and not hasattr(val, '__call__') \
+                            and key not in ["t", "pi", "tau", "e", "__builtins__", "inf", "nan"]:
+                        dict_keys.append(key)
+                csv_writer.writerow(dict_keys)
+                for i in range(0, frame_count):
+                    value_row = []
+                    func_map = self.func_util.update_math_env(i / self.cfg.frames_per_second)
+                    for key in dict_keys:
+                        if key in func_map:
+                            val = func_map[key]
+                            value_row.append(val)
+                    csv_writer.writerow(value_row)
+            return
         # TODO: this is pretty stateful, when resuming a run the interpolation frames will not be used.
         #  Must find and load them in that case.
         interpolation_frames = []

@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-
 from typing import List
 
 from t2v.config.context import AdditionalContextConfig
@@ -20,4 +19,5 @@ class RootConfig:
     torch_device: str
     output_path: str
     persistence_dir: str
+    simulate_output: str = None
     additional_context: AdditionalContextConfig = None

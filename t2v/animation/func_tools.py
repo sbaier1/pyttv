@@ -26,11 +26,7 @@ class FuncUtil:
         #    return self.eval_memo[string]
         if isinstance(string, str):
             self.math_env.update(vals)
-            self.math_env["t"] = t
-            for callback in self.callbacks.keys():
-                callback_result = self.callbacks[callback](t)
-                logging.debug(f"func callback invocation result for {callback}: {callback_result}")
-                self.math_env.update(callback_result)
+            self.update_math_env(t)
             try:
                 output = eval(string, self.math_env)
             except SyntaxError as e:
@@ -42,6 +38,14 @@ class FuncUtil:
             return output
         else:
             return string
+
+    def update_math_env(self, t):
+        self.math_env["t"] = t
+        for callback in self.callbacks.keys():
+            callback_result = self.callbacks[callback](t)
+            logging.debug(f"func callback invocation result for {callback}: {callback_result}")
+            self.math_env.update(callback_result)
+        return self.math_env
 
     def add_callback(self, key, func):
         """
