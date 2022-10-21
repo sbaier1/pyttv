@@ -4,20 +4,17 @@ import logging
 import typing
 
 import numpy as np
+import requests
 from PIL import Image
 from omegaconf import DictConfig
 
 from t2v.animation.func_tools import FuncUtil
 from t2v.config.root import RootConfig
-
 from t2v.mechanism.mechanism import Mechanism
-
-import requests
-
 from t2v.mechanism.t2i_3d_anim_wrapper import T2IAnimatedWrapper
+
 # Generated with revision 604620a7f08d1126a8689f9f4bec8ade0801a69b,
 # diff the template with a captured query of a more recent version to update these when necessary
-from t2v.mechanism.turbo_stablediff_functions import add_noise, sample_from_cv2, sample_to_cv2, maintain_colors
 
 TXT2IMG = """
 {{
@@ -205,20 +202,20 @@ class ApiMechanism(Mechanism):
         if config is not None:
             config_copy.update(config)
         if "strength" not in context:
-            config_copy.update({"strength": 1 - self.func_util.parametric_eval(config.get("strength_schedule"), t)})
+            config_copy.update({"strength": min(0.95, max(0, 1 - self.func_util.parametric_eval(config.get("strength_schedule"), t)))})
         else:
             # Invert input strength because it works the other way round in this mechanism
-            config_copy.update({"strength": 1 - context['strength']})
+            config_copy.update({"strength": min(0.95, max(0, 1 - context['strength']))})
 
         # TODO: key latents don't work here atm. img2img is too different from txt2img with scaled latents.
         #   idea: implement img2img module for automatic1111 for slerping between prompts, use that to generate all interpolation frames and write them directly.
         #   idea(easier?): generate the key latent image first, then run img2img between prev prompt with down-sloping denoising (denoise 0 in last step to finish transition)
-        if "interpolation_end" in context and context["interpolation_end"] and "seed" in config:
+       # if "interpolation_end" in context and context["interpolation_end"] and "seed" in config:
             # Start with a completely fresh frame with the desired seed here,
             # this is the condition for a "key latent" with a preceding interpolation
-            self.index = 0
+            #self.index = 0
             # Make sure we run a txt2img instead of an img2img to get the image the user wants to see at this point
-            del context["prev_image"]
+            #del context["prev_image"]
 
         # A new scene just started, initialize if necessary
         if self.scene_init:
