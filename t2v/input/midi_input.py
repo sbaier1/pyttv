@@ -13,11 +13,10 @@ class MidiInput(InputVariableMechanism):
         super().__init__(config, root_config)
         self.fps = root_config.frames_per_second
         midifile = mido.MidiFile(config["file"])
-        # TODO: allow arbitrary set_tempo events via config
         if "tempo" in config:
             tempo_override = config["tempo"]
             # Convert tempo in bpm to quarter node period in microseconds
-            tempo_us = int(60 / tempo_override * 1_000_000)
+            tempo_us = int(round((60 * 1000000) / tempo_override))
             midifile.tracks[0].insert(0, mido.MetaMessage('set_tempo', tempo=tempo_us, time=0))
         self.offset = 0 if "offset" not in config else config["offset"]
         offset = 0
@@ -48,7 +47,7 @@ class MidiInput(InputVariableMechanism):
         # TODO: this is pretty inefficent for now. binary search or something like that could be better
         # TODO we could return how well it matches instead of boolean (distance from actual beat)
         for note_time in self.note_events.keys():
-            if ft_min < note_time < ft_max:
+            if ft_min < note_time <= ft_max:
                 # noinspection PyTypeChecker
                 res["notes"] = self.note_events[note_time]
                 # FIXME: actually have to keep searching in case other events happen in this timeframe
