@@ -35,6 +35,8 @@ class T2IAnimatedWrapper(Mechanism):
         self.mechanism = mechanism
         self.color_match_sample = None
         self.index = 0
+        # Some additional interpolation state
+        self.interpolation_strength_history = []
 
     def generate(self, config: DictConfig, context, prompt: str, t):
         super().generate(config, context, prompt, t)
@@ -156,14 +158,26 @@ class T2IAnimatedWrapper(Mechanism):
                 raise RuntimeError("Interpolations must always have a previous image")
             # modulate the denoising strength while the interpolation is ongoing to retain more of the interpolation frames at the start, then make sure we reach 0 strength at the end
             strength_evaluated_prev = strength_evaluated
-            strength_evaluated = min(0.9, max(0.1, strength_evaluated + (1 - ((factor ** 1.4) * 1.65))))
-            logging.info(
-                f"strength modulation: {strength_evaluated_prev} -> {strength_evaluated}. "
-                f"diff: {abs(strength_evaluated - strength_evaluated_prev)}, at evaluated percentage {factor}")
+            if not self.interpolation_transition_complete:
+                strength_evaluated = min(0.9, max(0.1, strength_evaluated + (1 - ((factor ** 1.4) * 1.65))))
+                logging.info(
+                    f"strength modulation: {strength_evaluated_prev} -> {strength_evaluated}. "
+                    f"diff: {abs(strength_evaluated - strength_evaluated_prev)}, at evaluated percentage {factor}")
+                self.interpolation_strength_history.append(strength_evaluated)
+            if strength_evaluated < 0.25 \
+                    or np.average(np.array(self.interpolation_strength_history)
+                                  * np.linspace(0, 1, len(self.interpolation_strength_history)) ** 0.5) < 0.4:
+                # Stop modulating strength if the current step or
+                # the average of recent steps' strength is fairly low,
+                # just assume we finished the transition
+                logging.info(f"Considering transition as complete, stopping strength modulation, "
+                             f"history size: {len(self.interpolation_strength_history)}")
+                self.interpolation_transition_complete = True
             self.interpolation_index = self.interpolation_index + 1
         elif self.interpolation_ongoing and self.interpolation_index == len(self.interpolation_frames):
             self.stop_interpolation()
             interpolation_ended = True
+            self.interpolation_strength_history = []
         return previous_image, strength_evaluated, interpolation_ended
 
     def stop_interpolation(self):

@@ -1,4 +1,3 @@
-import os
 import typing
 
 import PIL.Image
@@ -33,6 +32,7 @@ class Mechanism:
         self.interpolation_index = 0
         self.interpolation_prev_prompt = None
         self.interpolation_ongoing = False
+        self.interpolation_transition_complete = False
 
     def generate(self, config: DictConfig, context, prompt: str, t):
         """
@@ -63,6 +63,7 @@ class Mechanism:
         self.interpolation_index = 0
         self.interpolation_prev_prompt = prev_prompt
         self.interpolation_ongoing = True
+        self.interpolation_transition_complete = False
 
     def reset_scene_state(self):
         """
