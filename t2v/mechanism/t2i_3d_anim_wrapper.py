@@ -146,6 +146,8 @@ class T2IAnimatedWrapper(Mechanism):
             else:
                 # linear interpolation
                 factor = percentage
+            if "init_frame" in config:
+                previous_image = Image.open(config.get("init_frame"))
             # Set the result image of the blend as the input for the ongoing animation
             if previous_image is not None:
                 previous_image = np.asarray(
