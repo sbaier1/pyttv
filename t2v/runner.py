@@ -1,11 +1,13 @@
 import csv
 import logging
+import math
 import os
 import re
 from datetime import timedelta
 from types import ModuleType
 
 from PIL import Image
+from jinja2 import Template
 from omegaconf import OmegaConf
 
 from t2v.animation.func_tools import FuncUtil
@@ -112,7 +114,7 @@ class Runner:
                         frame_path = os.path.join(self.output_path, INTERPOLATE_DIRECTORY, f"{i:02}_{k:05}.png")
                         if not os.path.exists(frame_path):
                             context = self.generate_and_save_frame(context, mechanism,
-                                                                   scene, frame_path)
+                                                                   scene, frame_path, 1.0)
                         else:
                             mechanism.skip_frame()
                         interpolation_frames.append(frame_path)
@@ -135,22 +137,27 @@ class Runner:
         context = init_context
         prev_frame_path = None
         has_fast_forwarded = False
+        step_in_scene = 0
+        total_frames = parse_time(scene.duration).seconds * self.cfg.frames_per_second
         while (self.t - float(offset)) < parse_time(scene.duration).seconds:
 
             prev_frame_path = os.path.join(self.output_path, f"{self.frame - 1:05}.png")
             current_frame_path = os.path.join(self.output_path, f"{self.frame:05}.png")
+            scene_progress = step_in_scene / total_frames
             if not os.path.exists(current_frame_path):
-                logging.info(f"Rendering overall frame {self.frame} in scene with prompt {scene.prompt}")
+                logging.info(f"Rendering overall frame {self.frame} in scene with prompt {scene.prompt}, "
+                             f"progress: {scene_progress}")
                 if has_fast_forwarded:
                     # Inject prev frame
                     # noinspection PyTypeChecker
                     context["prev_image"] = Image.open(prev_frame_path)
                 context = self.generate_and_save_frame(context, mechanism, scene,
-                                                       current_frame_path)
+                                                       current_frame_path, scene_progress)
             else:
                 logging.info(f"Skipping frame {self.frame:05} because it already exists on disk")
                 mechanism.skip_frame()
                 has_fast_forwarded = True
+            step_in_scene += 1
 
             self.frame = self.frame + 1
             self.t = (self.frame / self.cfg.frames_per_second)
@@ -171,8 +178,14 @@ class Runner:
             mechanism = self.mechanisms[mechanism_name]
         return mechanism
 
-    def generate_and_save_frame(self, context, mechanism, scene, path):
-        image_frame, context = mechanism.generate(scene.mechanism_parameters, context, scene.prompt, self.t)
+    def generate_and_save_frame(self, context, mechanism, scene, path, progress):
+        evaluated_prompt = Template(scene.prompt).render(
+            {'math': math,
+             'scene_progress': progress,
+             'round': round,
+             })
+        logging.info(f"Evaluated prompt {evaluated_prompt}")
+        image_frame, context = mechanism.generate(scene.mechanism_parameters, context, evaluated_prompt, self.t)
         image_frame.save(path)
         return context
 
