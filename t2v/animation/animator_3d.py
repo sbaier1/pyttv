@@ -7,7 +7,6 @@ from einops import rearrange
 from omegaconf import DictConfig
 
 from t2v.animation.animator import Animator
-from t2v.animation.helpers import AnimationUtils
 from t2v.config.root import RootConfig
 from t2v.mechanism.helpers_stablediff.depth import DepthModel
 
@@ -26,7 +25,6 @@ class Animator3D(Animator):
         self.root_config = root_config
 
         self.device = torch.device(root_config.torch_device)
-        self.animation_utils = AnimationUtils(self.device)
         self.depth_model = DepthModel(self.device)
         self.depth_model.load_midas(root_config.persistence_dir)
         self.midas_weight = config.get("midas_weight", 1.0)
