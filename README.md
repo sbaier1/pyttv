@@ -30,3 +30,7 @@ It's heavily advised to just use the API mechanism.
 - check out the [examples](config) and build your config
 - make sure the venv is sourced (see above)
 - Run your scenario with `python3 -cp config -cn=yourconfig` where `-cp` specifies the path to your config directory and `-cn` specifies which config to run.
+
+### macOS notes
+
+If you use an M1 mac, use `torch_device: cpu` in your configs. unfortunately the depth model currently does not work directly on the mps device.
