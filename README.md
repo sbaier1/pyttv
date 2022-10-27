@@ -19,6 +19,7 @@ It's heavily advised to just use the API mechanism.
 - create venv: `python3 -m venv venv`
 - source venv: `source venv/Scripts/activate` (or `source venv/bin/activate` on linux/macOS)
 - install lean reqs for API mechanism: `pip install -r requirements_lean.txt`
+- get the remaining dependencies that don't come with wheels/proper build systems: `./init.sh` (or just copy the few `git clone` commands from the file on windows)
 
 ### general usage
 
