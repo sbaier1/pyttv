@@ -25,9 +25,6 @@ INTERPOLATE_DIRECTORY = "_interpolate"
 time_regex = re.compile(
     r'(?=((?P<milliseconds>\d+?)ms)?)(?=((?P<hours>\d+?)hr)?)(?=((?P<minutes>\d+?)m(?!s))?)(?=((?P<seconds>\d+?)s)?)')
 
-TYPE_SPECTRAL = "spectral"
-TYPE_LIBROSA = "beats-librosa"
-
 mechanism_types = {
     TurboStableDiff.name(): TurboStableDiff,
     NoopMechanism.name(): NoopMechanism,

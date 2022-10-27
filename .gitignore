@@ -1,5 +1,7 @@
 outputs
 .idea
 *.iml
-generated
+generated/
+!generated/.gitkeep
 src
+persistence/*.pt

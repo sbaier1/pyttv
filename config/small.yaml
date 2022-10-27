@@ -1,0 +1,78 @@
+# Dimensions of the final video
+width: 512
+height: 512
+# Frame rate of the final video
+frames_per_second: 18
+
+# When set, the runner will only simulate running all frames and output the configured additional context for inspecting ahead of actually running the scenario or for debugging.
+# simulate_output: G:\shit\latent\out\vanishing.csv
+
+output_path: outputs/small/
+# A directory for intermediary results, and misc. other models that are required
+persistence_dir: persistence/
+
+# Torch device to use
+torch_device: cuda
+scenes:
+  - # The prompt to generate images from
+    # This example shows the prompt templating feature for modulating prompts during a scene:
+    # {{round(1-(scene_progress**0.9), 2)}} is evaluated at run-time, the purpose in this example is to have a slope on the "owl" and "cat" parts of the prompt,
+    # modulating their attention strength throughout the scene using auto's attention syntax https://github.com/AUTOMATIC1111/stable-diffusion-webui-feature-showcase#attention
+    prompt: a beautiful claymation artwork of an (owl:{{round(1-(scene_progress**0.9), 2)}}) (cat:{{round((scene_progress**0.9), 2)}}) in a beautiful claymation scene
+    # How long this prompt should last
+    duration: 3s
+    # Interpolation between the previous and this scene. does not add to the duration of the scene.
+    # NOTE: there is a bug with float durations here. Just use 1500ms instead of 1.5s instead as mitigation. https://github.com/sbaier1/pyttv/issues/16
+    interpolation: 0s
+    # Which mechanism to use to generate frames. Must be defined with parameters and type below
+    mechanism: api
+    # Optionally, some parameters of a mechanism may be modified at the scene-level. For example the number of steps to sample for in a diffusion model.
+    mechanism_parameters:
+      # Override the strength_schedule for this scene specifically.
+      strength_schedule: min(1.0, 0.39+(is_turbo_step*0.12))
+      # CFG scale
+      scale: 10.5
+
+
+mechanisms:
+  - # Name of this parameter set within the config. Can be referenced in scenes
+    name: api
+    # Name of the mechanism to use
+    type: api
+    # Arbitrary parameters the text2video mechanism can take. These are always implementation specific
+    mechanism_parameters:
+      host: http://localhost:7860
+      seed: 3455296820
+      # How many turbo steps (lower amount of sampling steps) to run in-between "full sized" frames
+      turbo_steps: 3
+      # How many sampling steps to run for a turbo frame
+      turbo_sampling_steps: 10
+      # Noise schedule (how much noise to add to in-between frames), can be a function or constant
+      noise_schedule: 0.02
+
+      steps: 15
+      # Euler a, LMS, ...
+      sampler: Euler a
+      # CFG scale
+      scale: 9.5
+      # This is denoising strength here, lower = better flow
+      strength_schedule: (min(1.0, 0.76+(is_turbo_step*0.12))) #(sin(6*t)**20)*0.2
+      # Type of animation to apply between frames, if any
+      animation: 3D
+      # Parameters for the animation
+      animation_parameters:
+        translation_x: 0.2
+        translation_y: 0.4
+        translation_z: 0.5
+        # depth model parameters
+        near_plane: 200
+        far_plane: 10000
+        fov: 40
+        sampling_mode: bicubic
+        padding_mode: border
+
+
+# Other multi-modal context
+additional_context:
+  # This example uses no additional inputs
+  input_mechanisms: []

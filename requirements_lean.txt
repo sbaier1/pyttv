@@ -8,7 +8,6 @@ jsonmerge
 matplotlib~=3.6.0
 resize-right
 timm~=0.6.7
-torchdiffeq
 numpy~=1.22.3
 opencv-python~=4.6.0
 onnx~=1.12.0

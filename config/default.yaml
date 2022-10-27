@@ -1,30 +1,148 @@
 # Dimensions of the final video
-width: 512
-height: 512
+width: 1280
+height: 768
 # Frame rate of the final video
 frames_per_second: 18
 
-# Path for output frames and other files
-output_path: generated/
+# When set, the runner will only simulate running all frames and output the evaluated functions for inspecting ahead of actually running the scenario or for debugging.
+# simulate_output: G:\shit\latent\out\vanishing.csv
+
+output_path: generated/vanishing
 
 # A directory for intermediary results, and misc. other models that are required
 persistence_dir: persistence/
 
 # Torch device to use
 torch_device: cuda
-
 scenes:
   - # The prompt to generate images from
-    prompt: asd
+    prompt: a beautiful abstract portrait painting of a person made of (fog) disappearing, black and white
     # How long this prompt should last at the frame rate specified above
-    duration: 46s
-    # Interpolation between the previous and this scene. does not add to the duration of the scene. The initial frames of this scene will contain the interpolated frames
+    duration: 10s
+    # Interpolation between the previous and this scene. does not add to the duration of the scene.
     interpolation: 0s
     # Which mechanism to use to generate frames. Must be defined with parameters and type below
-    mechanism: default
+    mechanism: api
     # Optionally, some parameters of a mechanism may be modified at the scene-level. For example the number of steps to sample for in a diffusion model.
     mechanism_parameters:
-      steps: 50
+      strength_schedule: min(1.0, 0.63-(note_playing(notes, 36)*0.23)+(is_turbo_step*0.14)) #(sin(6*t)**20)*0.2
+      # no anim initially
+      animation_parameters:
+        translation_x: 0
+        translation_y: 0
+        translation_z: 0
+        # depth model parameters
+        near_plane: 200
+        far_plane: 10000
+        fov: 40
+        sampling_mode: bicubic
+        padding_mode: border
+  - # The prompt to generate images from
+    prompt: a beautiful pencil painting of a lush (forest) with (intricate branches) on a foggy morning in the mountains, with a reflective pond in the background, fog in the background vaguely resembling a face, very intricate, geometric shapes, (black and white), large field of view, (3d), vast landscape, by M.C. Escher, [[vertical lines]]
+    # How long this prompt should last at the frame rate specified above
+    duration: 6s
+    # Interpolation between the previous and this scene. does not add to the duration of the scene.
+    interpolation: 3s
+    # Which mechanism to use to generate frames. Must be defined with parameters and type below
+    mechanism: api
+    # Optionally, some parameters of a mechanism may be modified at the scene-level. For example the number of steps to sample for in a diffusion model.
+    mechanism_parameters:
+      # Overrides the mechanism parameters below
+      # note_playing is a function that returns a 0 or 1 depending on whether a note is currently playing in the midi input.
+      # Used to induce "motion" by modulating the denoising strength here
+      strength_schedule: (min(1.0, 0.64-(min(1, note_playing(notes, 36))*0.24)+(is_turbo_step*0.1))) #(sin(6*t)**20)*0.2
+      scale: 9
+      # more abrupt interpolation at the end so we don't have a high denoising strength for too long
+      # https://www.wolframalpha.com/input?i=x**0.9+from+0+to+1
+      interpolation_function: (x**0.9)
+      turbo_steps: 2
+      steps: 40
+      animation_parameters:
+        translation_x: 0
+        translation_y: 0
+        translation_z: 1+note_playing(notes, 36)*1
+        # TODO: these shouldn't be necessary
+        # depth model parameters
+        near_plane: 200
+        far_plane: 10000
+        fov: 40
+        sampling_mode: bicubic
+        padding_mode: border
+  - # The prompt to generate images from
+    prompt: a beautiful scenic painting of a vast forest with a river on a sunny day with the blue sky above, intricate, [[[by M.C. Escher]]], (wide field of view)
+    # How long this prompt should last at the frame rate specified above
+    duration: 12s
+    # Interpolation between the previous and this scene. does not add to the duration of the scene.
+    interpolation: 1500ms
+    # Which mechanism to use to generate frames. Must be defined with parameters and type below
+    mechanism: api
+    # Optionally, some parameters of a mechanism may be modified at the scene-level. For example the number of steps to sample for in a diffusion model.
+    mechanism_parameters:
+      # Overrides the mechanism parameters below
+      strength_schedule: (min(1.0, 0.65-(note_playing(notes, 36)*0.26)+(is_turbo_step*0.16))) #(sin(6*t)**20)*0.2
+      # more abrupt interpolation at the end
+      interpolation_function: x**1.1
+      animation_parameters:
+        translation_x: (note_playing(notes, 36)*6)+sin(0.4*t)
+        translation_y: 0
+        translation_z: 2.4+note_playing(notes, 36)*2
+        # depth model parameters
+        near_plane: 200
+        far_plane: 10000
+        fov: 40
+        sampling_mode: bicubic
+        padding_mode: border
+  - # The prompt to generate images from
+    # Use python format-string to replace percentages in the prompt, this modulates the prompt throughout the scene to give more variety.
+    prompt: a beautiful abstract portrait painting of a [person:{{round(1-scene_progress, 1)}}|cloud:{{round(scene_progress*2, 1)}}] made of (fog:{{round(scene_progress*2, 1)}}), [black and white], ((visionary art))
+    # How long this prompt should last at the frame rate specified above
+    duration: 6.5s
+    # Interpolation between the previous and this scene. does not add to the duration of the scene.
+    interpolation: 1500ms
+    # Which mechanism to use to generate frames. Must be defined with parameters and type below
+    mechanism: api
+    # Optionally, some parameters of a mechanism may be modified at the scene-level. For example the number of steps to sample for in a diffusion model.
+    mechanism_parameters:
+      # Overrides the mechanism parameters below
+      strength_schedule: (min(1.0, 0.57-(max(1, note_playing(notes, 36)+note_playing(notes, 59))*0.26)+(is_turbo_step*0.12))) #(sin(6*t)**20)*0.2
+      # more abrupt interpolation at the end
+      interpolation_function: x**1.8
+      # Interpolate towards or start the scene with this frame
+      init_frame: G:\shit\latent\in\person_made_fog.png
+      animation_parameters:
+        translation_x: 0
+        translation_y: 0
+        translation_z: 1
+        # depth model parameters
+        near_plane: 200
+        far_plane: 10000
+        fov: 40
+        sampling_mode: bicubic
+        padding_mode: border
+  - # The prompt to generate images from
+    prompt: a beautiful scenic painting of a vast valley with a forest and a river on a sunny day with the blue sky above, intricate, [[[by M.C. Escher]]], (wide field of view)
+    # How long this prompt should last at the frame rate specified above
+    duration: 12s
+    # Interpolation between the previous and this scene. does not add to the duration of the scene.
+    interpolation: 2000ms
+    # Which mechanism to use to generate frames. Must be defined with parameters and type below
+    mechanism: api
+    # Optionally, some parameters of a mechanism may be modified at the scene-level. For example the number of steps to sample for in a diffusion model.
+    mechanism_parameters:
+      # Overrides the mechanism parameters below
+      strength_schedule: (min(1.0, 0.62-(note_playing(notes, 36)*0.26)+(is_turbo_step*0.16))) #(sin(6*t)**20)*0.2
+      # more abrupt interpolation at the end
+      interpolation_function: x
+      animation_parameters:
+        translation_x: (note_playing(notes, 36)*6)+sin(0.4*t)
+        translation_y: 0
+        translation_z: 2.4+note_playing(notes, 36)*2
+        # depth model parameters
+        near_plane: 200
+        far_plane: 10000
+        fov: 40
+        sampling_mode: bicubic
+        padding_mode: border
 
 mechanisms:
   - # Name of this parameter set within the config. Can be referenced in scenes
@@ -34,28 +152,31 @@ mechanisms:
     # Arbitrary parameters the text2video mechanism can take. These are always implementation specific
     mechanism_parameters:
       # Model to use
-      model_path: /path/to/model
+      model_path: G:\shit\latent\stable-diffusion\models\ldm\stable-diffusion-v1\model.ckpt
       # Config for the model to use
-      model_config_path: /path/to/config.yaml
+      model_config_path: G:\shit\latent\stable-diffusion\configs\stable-diffusion\v1-inference.yaml
       # Sampling steps per frame
-      steps: 20
+      steps: 80
       # Type of sampler
-      sampler: klms
+      sampler: euler
       # Unconditional guidance scale
-      scale: 7
+      scale: 6
 
       # How many turbo steps (lower amount of sampling steps) to run in-between "full sized" frames
-      turbo_steps: 1
+      turbo_steps: 4
       # How many sampling steps to run for a turbo frame
-      turbo_sampling_steps: 10
-      # Noise schedule (how much noise to add to in-between frames to improve variance), can be a function or static
-      noise_schedule: 0.02
-      strength_schedule: 0.65
+      turbo_sampling_steps: 30
+      # Noise schedule (how much noise to add to in-between frames), can be a function or static
+      noise_schedule: 0.01+note_playing(notes, 36)*0.01
+      # Strength schedule (how much of the previous frame to keep, improves temporal stability but high values may introduce artifacts)
+      strength_schedule: min(1.0, (0.68)-(note_playing(notes, 36)*0.45)+(is_turbo_step*0.15)) #(sin(6*t)**20)*0.2
+      # Contrast schedule
       contrast_schedule: 1.0
-      ddim_eta: 0.0
+      ddim_eta: 0.7
       dynamic_threshold:
       static_threshold:
       half_precision: true
+      precision: autocast
 
       use_init: false
       init_image: ""
@@ -63,23 +184,20 @@ mechanisms:
       init_use_mask: false
       strength: 0
       use_mask: false
-      init_c: null
 
-      seed: -1
-
+      seed: 945544844
 
       # Type of animation to apply between frames, if any
       animation: 3D
       # Parameters for the animation
-      # parameters handled in Animator3D class
       animation_parameters:
-        translation_x: 0
+        translation_x: (note_playing(notes, 36)*6)*sin(4*t)
         translation_y: 0
-        translation_z: 1
+        translation_z: 1.4+note_playing(notes, 36)*6
         # depth model parameters
-        near_plane: 20
+        near_plane: 200
         far_plane: 10000
-        fov: 40
+        fov: 50
         sampling_mode: bicubic
         padding_mode: border
   - # Name of this parameter set within the config. Can be referenced in scenes
@@ -89,56 +207,64 @@ mechanisms:
     # Arbitrary parameters the text2video mechanism can take. These are always implementation specific
     mechanism_parameters:
       host: http://localhost:7860
-      seed: 123456
+      seed: 2812101937
       # How many turbo steps (lower amount of sampling steps) to run in-between "full sized" frames
       turbo_steps: 4
       # How many sampling steps to run for a turbo frame
-      turbo_sampling_steps: 20
+      turbo_sampling_steps: 30
       # Noise schedule (how much noise to add to in-between frames), can be a function or static
-      noise_schedule: 0.02
+      noise_schedule: 0.02+note_playing(notes, 36)*0.05
 
-      steps: 40
+      steps: 35
       # Euler a, LMS, ...
       sampler: Euler a
       scale: 9.5
       # This is denoising strength here, lower = better flow
-      strength_schedule: 1-(min(1.0, (0.7)+(is_turbo_step*0.15))) #(sin(6*t)**20)*0.2
+      strength_schedule: (min(1.0, 0.76-(note_playing(notes, 36)*0.5)+(is_turbo_step*0.12))) #(sin(6*t)**20)*0.2
       # Type of animation to apply between frames, if any
       animation: 3D
       # Parameters for the animation
       animation_parameters:
-        translation_x: 0
-        translation_y: beat*2*1*sin(1/4*t)
-        translation_z: 0.5+beat*7
+        translation_x: (note_playing(notes, 36)*6)+sin(0.25*t)
+        translation_y: 0
+        translation_z: 1.4+note_playing(notes, 36)*6
         # depth model parameters
         near_plane: 200
         far_plane: 10000
         fov: 40
         sampling_mode: bicubic
         padding_mode: border
-# Other, global multi-modal context
+
+
+# Other multi-modal context
 additional_context:
-  audio_reactivity:
-    # Audio reactivity configuration
-    # The type of audio-reactivity to perform.
-    #   spectral is a very simple type of audio-reactivity that uses bandpass filters and returns a normalized 0..1 range value for each filter's amplitude at each given point in time.
-    #   beat-librosa uses librosa's beat detection mechanism for detecting beats and simply returns a "beat" variable that is either 0 or 1 in the function environment.
-    type: "spectral"
-    # Path to the audio file, any audio file compatible with ffmpeg will work
-    input_audio_file: ""
-    # Offset the audio by this many seconds. Useful when generating a scene only for a specific part in an audio file
-    input_audio_offset: 0
-    # Filters are only necessary for spectral type reactivity
-    input_audio_filters: [ ]
-    # input_audio_filters:
-    # - variable_name: fLo # The name of the variable we will use in the animation function
-    #   f_center: 80       # Central frequency the filter will respond to (80Hz)
-    #   f_width: 20        # The filter will pass signals from 70Hz to 90Hz
-    #   order: 6           # The filter slope will be 6*6=36dB per octave
+  input_mechanisms:
+# Midi input mechanism: Reads a given midi file's note_on events
+# NOTE: currently only a single track midi file is properly supported
+    - type: midi
+      mechanism_parameters:
+        file: G:\shit\latent\out\vanishing_drums.mid
+        # Offset the midi as it's read. Useful for animating a certain portion of a midi clip
+        offset: 50.5
+        # override/add an initial set_tempo event at the start of the midi file if necessary (in bpm)
+        tempo: 60
 
-
-
-# TODO: later: handle remaining tasks also:
-# - upscaling?
-# - video encoding?
-# - interpolation?
+# Spectral input mechanism: Analyzes an audio file using bandpass filters,
+# passes a variable into the functions in the `0..1` range that indicates the amplitude of the signal within the filter.
+# Normalized to cover the full range.
+    - type: "spectral"
+      mechanism_parameters:
+        file: E:\Downloads\05 - Vanishing.flac
+        offset: 50 # Start analyzing the file at 50s, for generating animations at an offset
+        filters:
+          - variable_name: beat # The name of the variable we will use in the animation function
+            f_center: 54       # Central frequency the filter will respond to (54Hz)
+            f_width: 40        # The filter will pass signals from 34Hz to 74Hz
+            order: 7           # The filter slope will be 7*6=42dB per octave
+# Beat detection mechanism using librosa. A rudimentary input mechanism that simply takes an audio file and runs beat detection on it.
+# The functions get an additional "is_beat" variable that is either 0 or 1 for inducing motion.
+# This mechanism can be inaccurate, it's advised to run a simulation (see above) first or at least compare the tempo detected by librosa.
+#    - type: "beats-librosa"
+#      mechanism_parameters:
+#        file: E:\Downloads\05 - Vanishing.flac
+#        offset: 50 # Start analyzing the file at 50s, for generating animations at an offset
