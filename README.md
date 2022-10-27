@@ -11,8 +11,6 @@ Mainly based on PyTTI and deforum, but adding and focusing around:
 
 ## usage
 
-It's heavily advised to just use the API mechanism.
-
 ### installation
 
 - prerequisite: Install python3.10+
