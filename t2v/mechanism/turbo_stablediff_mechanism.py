@@ -9,12 +9,15 @@ from pytorch_lightning import seed_everything
 
 from t2v.mechanism.mechanism import Mechanism
 from t2v.mechanism.t2i_3d_anim_wrapper import T2IAnimatedWrapper
-from t2v.mechanism.turbo_stablediff_functions import DeforumArgs, TurboStableDiffUtils, sample_to_cv2, sample_from_cv2
+from t2v.mechanism.turbo_stablediff_functions import DeforumArgs, TurboStableDiffUtils, sample_from_cv2
 
 
 class TurboStableDiff(Mechanism):
     def __init__(self, config, root_config, func_util):
         super().__init__(config, root_config, func_util)
+        logging.warning(f"-- WARNING: The direct stable diffusion mechanism is deprecated. "
+                        f"Please use the API mechanism instead for improved "
+                        f"performance, compatibility and flexibility.")
         self.func_util = func_util
         func_util.add_callback("isTurboStep", self.is_turbo_step)
         model_path = config["model_path"]
