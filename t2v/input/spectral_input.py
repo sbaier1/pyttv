@@ -1,8 +1,14 @@
-import numpy as np
-import typing
-import subprocess
 import logging
-from scipy.signal import butter, sosfilt, sosfreqz
+import subprocess
+import typing
+from dataclasses import dataclass
+
+import numpy as np
+from omegaconf import DictConfig
+from scipy.signal import butter, sosfilt
+
+from t2v.config.root import RootConfig
+from t2v.input.input_mechanism import InputVariableMechanism
 
 SAMPLERATE = 44100
 
@@ -27,29 +33,36 @@ def read_audio_signed16(input_audio):
     return audio_samples
 
 
-class SpectralAudioParser:
-    """
-    reads a given input file, scans along it and parses the amplitude in selected bands using butterworth bandpass filters.
-    the amplitude is normalized into the 0..1 range for easier use in transformation functions.
-    """
+@dataclass
+class SpectralAudioFilter:
+    variable_name: str
+    f_center: int
+    f_width: int
+    order: int
 
-    def __init__(
-            self,
-            input_audio,
-            offset,
-            frames_per_second,
-            filters
-    ):
+
+class SpectralAudioParser(InputVariableMechanism):
+    def __init__(self, config: DictConfig, root_config: RootConfig):
+        super().__init__(config, root_config)
+        frames_per_second = root_config.frames_per_second
+        input_audio = config["file"]
+        offset = config["offset"]
+        filters_list = config["filters"]
+        filters = []
+        for filter in filters_list:
+            filters.append(SpectralAudioFilter(**filter))
+
         if len(filters) < 1:
             raise RuntimeError("When using input_audio, at least 1 filter must be specified")
 
         self.audio_samples = read_audio_signed16(input_audio)
         self.duration = len(self.audio_samples) / SAMPLERATE
         logging.info(
-            f"initialized audio file {input_audio}, samples read: {len(self.audio_samples)}, total duration: {self.duration}s")
+            f"initialized audio file {input_audio}, samples read: {len(self.audio_samples)},"
+            f" total duration: {self.duration}s")
         self.offset = offset
         if offset > self.duration:
-            raise RuntimeError(f"Audio offset set at {offset}s but input audio is only {duration}s long")
+            raise RuntimeError(f"Audio offset set at {offset}s but input audio is only {self.duration}s long")
         # analyze all samples for the current frame
         self.window_size = int(1 / frames_per_second * SAMPLERATE)
         self.filters = filters
@@ -72,7 +85,7 @@ class SpectralAudioParser:
         self.band_maxima = maxima
         logging.info(f"initialized band maxima for {len(filters)} filters: {self.band_maxima}")
 
-    def get_params(self, t) -> typing.Dict[str, float]:
+    def func_var_callback(self, t) -> typing.Dict[str, float]:
         """
         Return the amplitude parameters at the given point in time t within the audio track, or 0 if the track has ended.
         Amplitude/energy parameters are normalized into the [0,1] range.
@@ -92,8 +105,8 @@ class SpectralAudioParser:
             logging.info(f"Warning: Audio input has ended. Returning null result")
             return {}
 
-    def get_duration(self):
-        return self.duration
+    def prompt_modulator_callback(self, t) -> typing.Dict[str, str]:
+        return super().prompt_modulator_callback(t)
 
 
 def butter_bandpass(lowcut, highcut, fs, order=5):

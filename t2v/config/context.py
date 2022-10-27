@@ -1,22 +1,14 @@
 from dataclasses import dataclass
 from typing import List
 
+from omegaconf import DictConfig
+
 
 @dataclass
-class SpectralAudioFilter:
-    variable_name: str
-    f_center: int
-    f_width: int
-    order: int
-
-@dataclass
-class AudioReactivityConfig:
+class MechanismDefinition:
     type: str
-    input_audio_file: str
-    input_audio_offset: float
-    input_audio_filters: List[SpectralAudioFilter]
+    mechanism_parameters: DictConfig
 
 @dataclass
 class AdditionalContextConfig:
-    audio_reactivity: AudioReactivityConfig = None
-
+    input_mechanisms: List[MechanismDefinition]

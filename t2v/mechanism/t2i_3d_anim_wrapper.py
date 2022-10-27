@@ -1,3 +1,4 @@
+import logging
 import os
 
 import cv2
@@ -34,6 +35,8 @@ class T2IAnimatedWrapper(Mechanism):
         self.mechanism = mechanism
         self.color_match_sample = None
         self.index = 0
+        # Some additional interpolation state
+        self.interpolation_strength_history = []
 
     def generate(self, config: DictConfig, context, prompt: str, t):
         super().generate(config, context, prompt, t)
@@ -133,6 +136,8 @@ class T2IAnimatedWrapper(Mechanism):
         if self.interpolation_ongoing and len(self.interpolation_frames) > 0 and self.interpolation_index < len(
                 self.interpolation_frames):
             # Disable color matching during the interpolation, so we don't force-keep the previous scene color profile
+            # TODO: make color matching more progressive instead of on/off.
+            #  maybe progressively reduce its weight instead?
             self.color_match_sample = None
             interpolation_frame = self.interpolation_frames[self.interpolation_index]
             interpolation_function = config.get("interpolation_function")
@@ -143,20 +148,36 @@ class T2IAnimatedWrapper(Mechanism):
             else:
                 # linear interpolation
                 factor = percentage
+            if "init_frame" in config:
+                previous_image = Image.open(config.get("init_frame"))
             # Set the result image of the blend as the input for the ongoing animation
             if previous_image is not None:
                 previous_image = np.asarray(
                     self.blend_frames(Image.open(interpolation_frame), previous_image, factor))
             else:
                 raise RuntimeError("Interpolations must always have a previous image")
-            # modulate the denoising strength while the interpolation is ongoing to retain more of the interpolation frames
-            # the 1.5 factor ensures we go to the minimum clamped strength so a full transition to the new scene can be
-            # made without retaining some features of the previous scene forever.
-            strength_evaluated = min(1.0, max(0.1, strength_evaluated * 0.4 + ((1 - (factor*1.9)) * 0.7)))
+            # modulate the denoising strength while the interpolation is ongoing to retain more of the interpolation frames at the start, then make sure we reach 0 strength at the end
+            strength_evaluated_prev = strength_evaluated
+            if not self.interpolation_transition_complete:
+                strength_evaluated = min(0.9, max(0.1, strength_evaluated + (1 - ((factor ** 1.4) * 1.65))))
+                logging.info(
+                    f"strength modulation: {strength_evaluated_prev} -> {strength_evaluated}. "
+                    f"diff: {abs(strength_evaluated - strength_evaluated_prev)}, at evaluated percentage {factor}")
+                self.interpolation_strength_history.append(strength_evaluated)
+            if strength_evaluated < 0.25 \
+                    or np.average(np.array(self.interpolation_strength_history)
+                                  * np.linspace(0, 1, len(self.interpolation_strength_history)) ** 0.5) < 0.4:
+                # Stop modulating strength if the current step or
+                # the average of recent steps' strength is fairly low,
+                # just assume we finished the transition
+                logging.info(f"Considering transition as complete, stopping strength modulation, "
+                             f"history size: {len(self.interpolation_strength_history)}")
+                self.interpolation_transition_complete = True
             self.interpolation_index = self.interpolation_index + 1
         elif self.interpolation_ongoing and self.interpolation_index == len(self.interpolation_frames):
             self.stop_interpolation()
             interpolation_ended = True
+            self.interpolation_strength_history = []
         return previous_image, strength_evaluated, interpolation_ended
 
     def stop_interpolation(self):

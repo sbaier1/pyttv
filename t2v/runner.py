@@ -1,17 +1,21 @@
+import csv
 import logging
+import math
 import os
 import re
 from datetime import timedelta
+from types import ModuleType
 
-import numpy as np
 from PIL import Image
+from jinja2 import Template
 from omegaconf import OmegaConf
 
-from t2v.animation.audio_parse import SpectralAudioParser
-from t2v.animation.audio_parse_beats import BeatAudioParser
 from t2v.animation.func_tools import FuncUtil
 from t2v.config.root import RootConfig
 from t2v.config.scene import Scene
+from t2v.input.beats_input import BeatAudioParser
+from t2v.input.midi_input import MidiInput
+from t2v.input.spectral_input import SpectralAudioParser
 from t2v.mechanism.api_mechanism import ApiMechanism
 from t2v.mechanism.noop_mechanism import NoopMechanism
 from t2v.mechanism.turbo_stablediff_mechanism import TurboStableDiff
@@ -28,6 +32,12 @@ mechanism_types = {
     TurboStableDiff.name(): TurboStableDiff,
     NoopMechanism.name(): NoopMechanism,
     ApiMechanism.name(): ApiMechanism
+}
+
+reactivity_types = {
+    "beats-librosa": BeatAudioParser,
+    "spectral": SpectralAudioParser,
+    "midi": MidiInput,
 }
 
 
@@ -52,6 +62,34 @@ class Runner:
 
     def run(self):
         logging.debug(f"Launching with config:\n{OmegaConf.to_yaml(self.cfg)}")
+        if "simulate_output" in self.cfg:
+            logging.info(f"Running in simulation mode. Saving result to {self.cfg.simulate_output}")
+            duration = 0
+            for scene in self.cfg.scenes:
+                self.get_or_initialize_mechanism(scene)
+                duration += parse_time(scene.duration).total_seconds()
+            frame_count = self.get_frame_count(duration)
+            with open(self.cfg.simulate_output, 'w') as csvfile:
+                csv_writer = csv.writer(csvfile)
+                # header
+                func_map = self.func_util.update_math_env(0)
+                dict_keys = ["t"]
+                for key in func_map.keys():
+                    val = func_map[key]
+                    if not isinstance(val, ModuleType) \
+                            and not hasattr(val, '__call__') \
+                            and key not in ["t", "pi", "tau", "e", "__builtins__", "inf", "nan"]:
+                        dict_keys.append(key)
+                csv_writer.writerow(dict_keys)
+                for i in range(0, frame_count):
+                    value_row = []
+                    func_map = self.func_util.update_math_env(i / self.cfg.frames_per_second)
+                    for key in dict_keys:
+                        if key in func_map:
+                            val = func_map[key]
+                            value_row.append(val)
+                    csv_writer.writerow(value_row)
+            return
         # TODO: this is pretty stateful, when resuming a run the interpolation frames will not be used.
         #  Must find and load them in that case.
         interpolation_frames = []
@@ -76,7 +114,7 @@ class Runner:
                         frame_path = os.path.join(self.output_path, INTERPOLATE_DIRECTORY, f"{i:02}_{k:05}.png")
                         if not os.path.exists(frame_path):
                             context = self.generate_and_save_frame(context, mechanism,
-                                                                   scene, frame_path)
+                                                                   scene, frame_path, 1.0)
                         else:
                             mechanism.skip_frame()
                         interpolation_frames.append(frame_path)
@@ -99,22 +137,27 @@ class Runner:
         context = init_context
         prev_frame_path = None
         has_fast_forwarded = False
+        step_in_scene = 0
+        total_frames = parse_time(scene.duration).seconds * self.cfg.frames_per_second
         while (self.t - float(offset)) < parse_time(scene.duration).seconds:
 
             prev_frame_path = os.path.join(self.output_path, f"{self.frame - 1:05}.png")
             current_frame_path = os.path.join(self.output_path, f"{self.frame:05}.png")
+            scene_progress = step_in_scene / total_frames
             if not os.path.exists(current_frame_path):
-                logging.info(f"Rendering overall frame {self.frame} in scene with prompt {scene.prompt}")
+                logging.info(f"Rendering overall frame {self.frame} in scene with prompt {scene.prompt}, "
+                             f"progress: {scene_progress}")
                 if has_fast_forwarded:
                     # Inject prev frame
                     # noinspection PyTypeChecker
                     context["prev_image"] = Image.open(prev_frame_path)
                 context = self.generate_and_save_frame(context, mechanism, scene,
-                                                       current_frame_path)
+                                                       current_frame_path, scene_progress)
             else:
-                logging.info(f"Winding past frame {self.frame:05} because it already exists on disk")
+                logging.info(f"Skipping frame {self.frame:05} because it already exists on disk")
                 mechanism.skip_frame()
                 has_fast_forwarded = True
+            step_in_scene += 1
 
             self.frame = self.frame + 1
             self.t = (self.frame / self.cfg.frames_per_second)
@@ -135,8 +178,14 @@ class Runner:
             mechanism = self.mechanisms[mechanism_name]
         return mechanism
 
-    def generate_and_save_frame(self, context, mechanism, scene, path):
-        image_frame, context = mechanism.generate(scene.mechanism_parameters, context, scene.prompt, self.t)
+    def generate_and_save_frame(self, context, mechanism, scene, path, progress):
+        evaluated_prompt = Template(scene.prompt).render(
+            {'math': math,
+             'scene_progress': progress,
+             'round': round,
+             })
+        logging.info(f"Evaluated prompt {evaluated_prompt}")
+        image_frame, context = mechanism.generate(scene.mechanism_parameters, context, evaluated_prompt, self.t)
         image_frame.save(path)
         return context
 
@@ -162,26 +211,12 @@ class Runner:
 
     def initialize_additional_context(self):
         if "additional_context" in self.cfg and self.cfg.additional_context is not None:
-            reactivity_config = self.cfg.additional_context.audio_reactivity
-            if reactivity_config is not None:
-                logging.info("Initializing audio reactivity...")
-                audio_input_file = reactivity_config.input_audio_file
-                audio_reactivity_type = reactivity_config.type
-                filters = reactivity_config.input_audio_filters
-                if audio_input_file is not None and audio_reactivity_type is not None:
-                    if audio_reactivity_type == TYPE_LIBROSA:
-                        logging.info(f"Initializing beat audio reactivity with input file {audio_input_file}...")
-                        audio_parser = BeatAudioParser(audio_input_file, self.cfg.frames_per_second,
-                                                       reactivity_config.input_audio_offset)
-                        self.func_util.add_callback("audio", audio_parser.get_params)
-                    elif audio_reactivity_type == TYPE_SPECTRAL and filters is not None and len(filters) > 0:
-                        logging.info(f"Initializing audio reactivity with input file {audio_input_file}...")
-                        audio_parser = SpectralAudioParser(audio_input_file, reactivity_config.input_audio_offset,
-                                                           self.cfg.frames_per_second, filters)
-                        self.func_util.add_callback("audio", audio_parser.get_params)
-                    else:
-                        logging.error(f"Could not initialize audio-reactivity, missing parameters or invalid type? "
-                                      f"Valid types: {TYPE_LIBROSA}, {TYPE_SPECTRAL}")
+            input_mechanisms = self.cfg.additional_context.input_mechanisms
+            for mechanism in input_mechanisms:
+                logging.info("Initializing input mechanisms...")
+                cls = reactivity_types.get(mechanism.type)
+                instance = cls(mechanism.mechanism_parameters, self.cfg)
+                self.func_util.add_callback(mechanism.type, instance.func_var_callback)
 
 
 def parse_time(time_str):
@@ -193,4 +228,8 @@ def parse_time(time_str):
     for name, param in parts.items():
         if param:
             time_params[name] = int(param)
-    return timedelta(**time_params)
+    result = timedelta(**time_params)
+    if result.total_seconds() == 0:
+        logging.warning(f"Time string {time_str} evaluated to 0s. 0 durations typically don't need to be specified."
+                        f" (Could be a parser error)")
+    return result
