@@ -18,7 +18,6 @@ from t2v.input.midi_input import MidiInput
 from t2v.input.spectral_input import SpectralAudioParser
 from t2v.mechanism.api_mechanism import ApiMechanism
 from t2v.mechanism.noop_mechanism import NoopMechanism
-from t2v.mechanism.turbo_stablediff_mechanism import TurboStableDiff
 
 INTERPOLATE_DIRECTORY = "_interpolate"
 
@@ -26,7 +25,6 @@ time_regex = re.compile(
     r'(?=((?P<milliseconds>\d+?)ms)?)(?=((?P<hours>\d+?)hr)?)(?=((?P<minutes>\d+?)m(?!s))?)(?=((?P<seconds>\d+?)s)?)')
 
 mechanism_types = {
-    TurboStableDiff.name(): TurboStableDiff,
     NoopMechanism.name(): NoopMechanism,
     ApiMechanism.name(): ApiMechanism
 }
