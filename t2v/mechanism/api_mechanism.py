@@ -18,152 +18,77 @@ from t2v.mechanism.t2i_3d_anim_wrapper import T2IAnimatedWrapper
 
 TXT2IMG = """
 {{
-"fn_index": 13,
-  "data": [
-    "{prompt}",
-    "",
-    "None",
-    "None",
-    {steps},
-    "{sampler}",
-    false,
-    false,
-    1,
-    1,
-    {scale},
-    {seed},
-    -1,
-    0,
-    0,
-    0,
-    false,
-    {H},
-    {W},
-    {hires_fix_enabled},
-    {hires_denoising_strength},
-    {W_init},
-    {H_init},
-    "None",
-    false,
-    false,
-    null,
-    "",
-    "Seed",
-    "",
-    "Nothing",
-    "",
-    true,
-    false,
-    false,
-    null,
-    ""
+  "enable_hr": {hires_fix_enabled},
+  "denoising_strength": {hires_denoising_strength},
+  "firstphase_width": 0,
+  "firstphase_height": 0,
+  "prompt": "{prompt}",
+  "styles": [
+    "string"
   ],
-  "session_hash": "djrqd1giwif"
+  "seed": {seed},
+  "subseed": -1,
+  "subseed_strength": 0,
+  "seed_resize_from_h": -1,
+  "seed_resize_from_w": -1,
+  "batch_size": 1,
+  "n_iter": 1,
+  "steps": {steps},
+  "cfg_scale": {scale},
+  "width": {W},
+  "height": {H},
+  "restore_faces": false,
+  "tiling": false,
+  "negative_prompt": "string",
+  "eta": 0,
+  "s_churn": 0,
+  "s_tmax": 0,
+  "s_tmin": 0,
+  "s_noise": 1,
+  "override_settings": {{}},
+  "sampler_index": "{sampler}"
 }}
 """
 
 IMG2IMG = """
 {{
-"fn_index": 33,
-    "data": [
-        0,
-        "{prompt}",
-        "",
-        "None",
-        "None",
-        "data:image/png;base64,{pngbase64}",
-        null,
-        null,
-        null,
-        "Draw mask",
-        {steps},
-        "{sampler}",
-        4,
-        "fill",
-        false,
-        false,
-        1,
-        1,
-        {scale},
-        {strength},
-        {seed},
-        -1,
-        0,
-        0,
-        0,
-        false,
-        {H},
-        {W},
-        "Just resize",
-        false,
-        32,
-        "Inpaint masked",
-        "",
-        "",
-        "None",
-        "",
-        true,
-        true,
-        "",
-        "",
-        true,
-        50,
-        true,
-        1,
-        0,
-        false,
-        4,
-        1,
-        "",
-        128,
-        8,
-        [
-            "left",
-            "right",
-            "up",
-            "down"
-        ],
-        1,
-        0.05,
-        128,
-        4,
-        "fill",
-        [
-            "left",
-            "right",
-            "up",
-            "down"
-        ],
-        "",    
-        true,
-        true,
-        "",
-        "",
-        true,
-        50,
-        true,
-        1,
-        0,
-        false,
-        false,
-        false,
-        null,
-        "",
-        "",
-        64,
-        "None",
-        "Seed",
-        "",
-        "Nothing",
-        "",
-        true,
-        false,
-        false,
-        null,
-        "",
-        ""
-],
-"session_hash": "djrqd1giwif"
+  "init_images": [
+    "data:image/png;base64,{pngbase64}"
+  ],
+  "resize_mode": 0,
+  "denoising_strength": 0.75,
+  "mask": null,
+  "mask_blur": 4,
+  "inpainting_fill": 0,
+  "inpaint_full_res": true,
+  "inpaint_full_res_padding": 0,
+  "inpainting_mask_invert": 0,
+  "prompt": "{prompt}",
+  "styles": [
+    "string"
+  ],
+  "seed": {seed},
+  "subseed": -1,
+  "subseed_strength": 0,
+  "seed_resize_from_h": -1,
+  "seed_resize_from_w": -1,
+  "batch_size": 1,
+  "n_iter": 1,
+  "steps": {steps},
+  "cfg_scale": {scale},
+  "width": {W},
+  "height": {H},
+  "restore_faces": false,
+  "tiling": false,
+  "negative_prompt": "string",
+  "eta": 0,
+  "s_churn": 0,
+  "s_tmax": 0,
+  "s_tmin": 0,
+  "s_noise": {strength},
+  "override_settings": {{}},
+  "sampler_index": "{sampler}",
+  "include_init_images": false
 }}"""
 
 
@@ -202,7 +127,8 @@ class ApiMechanism(Mechanism):
         if config is not None:
             config_copy.update(config)
         if "strength" not in context:
-            config_copy.update({"strength": min(0.95, max(0, 1 - self.func_util.parametric_eval(config.get("strength_schedule"), t)))})
+            config_copy.update(
+                {"strength": min(0.95, max(0, 1 - self.func_util.parametric_eval(config.get("strength_schedule"), t)))})
         else:
             # Invert input strength because it works the other way round in this mechanism
             config_copy.update({"strength": min(0.95, max(0, 1 - context['strength']))})
@@ -210,12 +136,12 @@ class ApiMechanism(Mechanism):
         # TODO: key latents don't work here atm. img2img is too different from txt2img with scaled latents.
         #   idea: implement img2img module for automatic1111 for slerping between prompts, use that to generate all interpolation frames and write them directly.
         #   idea(easier?): generate the key latent image first, then run img2img between prev prompt with down-sloping denoising (denoise 0 in last step to finish transition)
-       # if "interpolation_end" in context and context["interpolation_end"] and "seed" in config:
-            # Start with a completely fresh frame with the desired seed here,
-            # this is the condition for a "key latent" with a preceding interpolation
-            #self.index = 0
-            # Make sure we run a txt2img instead of an img2img to get the image the user wants to see at this point
-            #del context["prev_image"]
+        # if "interpolation_end" in context and context["interpolation_end"] and "seed" in config:
+        # Start with a completely fresh frame with the desired seed here,
+        # this is the condition for a "key latent" with a preceding interpolation
+        # self.index = 0
+        # Make sure we run a txt2img instead of an img2img to get the image the user wants to see at this point
+        # del context["prev_image"]
 
         # A new scene just started, initialize if necessary
         if self.scene_init:
@@ -277,14 +203,13 @@ class ApiMechanism(Mechanism):
 
     def _txt2img(self, config_param: dict):
         body = TXT2IMG.format(**config_param)
-        res = requests.post(f"{self.host}/api/predict/",
+        res = requests.post(f"{self.host}/sdapi/v1/txt2img",
                             data=body)
         if res.status_code == 200:
             json = res.json()
             # We just assume the expected format for now. Errors in the format received from the API lead to crashes.
-            # Remove prefix: data:image/png;base64,
-            image = json['data'][0][0]['name']
-            return Image.open(image)
+            image = json['images'][0]
+            return Image.open(io.BytesIO(base64.b64decode(image)))
         else:
             logging.error(f"API request failed, response code {res.status_code}, response body: {res.raw}")
             logging.error(f"Original request body: {body}")
@@ -299,15 +224,15 @@ class ApiMechanism(Mechanism):
         img_str = str(base64.b64encode(buffered.getvalue()))[2:-1]
         body = IMG2IMG.format(**config_param,
                               pngbase64=img_str)
-        res = requests.post(f"{self.host}/api/predict/",
+        res = requests.post(f"{self.host}/sdapi/v1/img2img",
                             data=body)
         if res.status_code == 200:
             json = res.json()
             # We just assume the expected format for now. Errors in the format received from the API lead to crashes.
-            image = json['data'][0][0]['name']
-            return Image.open(image)
+            image = json['images'][0]
+            return Image.open(io.BytesIO(base64.b64decode(image)))
         else:
-            logging.error(f"API request failed, response code {res.status_code}, response body: {res.json()}")
+            logging.error(f"API request failed, response code {res.status_code}, response body: {res.text}")
             logging.error(f"Original request body: {body}")
             raise RuntimeError("Unexpected non-200 exit code")
 
