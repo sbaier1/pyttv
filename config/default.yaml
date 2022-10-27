@@ -92,8 +92,7 @@ scenes:
         fov: 40
         sampling_mode: bicubic
         padding_mode: border
-  - # The prompt to generate images from
-    # Use python format-string to replace percentages in the prompt, this modulates the prompt throughout the scene to give more variety.
+  - # Here we use a template to replace percentages in the prompt to shift attention during the scene. this modulates the prompt throughout the scene to give more variety.
     prompt: a beautiful abstract portrait painting of a [person:{{round(1-scene_progress, 1)}}|cloud:{{round(scene_progress*2, 1)}}] made of (fog:{{round(scene_progress*2, 1)}}), [black and white], ((visionary art))
     # How long this prompt should last at the frame rate specified above
     duration: 6.5s

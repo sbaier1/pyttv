@@ -15,9 +15,10 @@ persistence_dir: persistence/
 torch_device: cuda
 scenes:
   - # The prompt to generate images from
-    # This example shows the prompt templating feature for modulating prompts during a scene:
+    # This example shows the prompt modulation/templating feature for modulating prompts during a scene to increase variety and allow for gradual changes throughout a scene
     # {{round(1-(scene_progress**0.9), 2)}} is evaluated at run-time, the purpose in this example is to have a slope on the "owl" and "cat" parts of the prompt,
     # modulating their attention strength throughout the scene using auto's attention syntax https://github.com/AUTOMATIC1111/stable-diffusion-webui-feature-showcase#attention
+    # the template syntax used here is jinja2. some additional basic examples: https://jinja.palletsprojects.com/en/3.1.x/nativetypes/#examples
     prompt: a beautiful claymation artwork of an (owl:{{round(1-(scene_progress**0.9), 2)}}) (cat:{{round((scene_progress**0.9), 2)}}) in a beautiful claymation scene
     # How long this prompt should last
     duration: 3s
