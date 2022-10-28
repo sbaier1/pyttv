@@ -52,6 +52,8 @@ class Runner:
         self.frame = 0
         self.t = float(0)
         self.scene_offset = 0
+        self.scene_progress = 0
+        self.func_util.add_callback("runner_scene_progress", self.get_scene_progress)
         # TODO: ensure/create output dir
         self.initialize_additional_context()
 
@@ -126,6 +128,9 @@ class Runner:
         frame_seconds = 1 / self.cfg.frames_per_second
         return int(duration / frame_seconds)
 
+    def get_scene_progress(self):
+        return self.scene_progress
+
     def handle_scene(self, scene: Scene, offset,
                      interpolation_frames, prev_prompt=None, init_context={}):
         mechanism = self.get_or_initialize_mechanism(scene)
@@ -139,6 +144,7 @@ class Runner:
             prev_frame_path = os.path.join(self.output_path, f"{self.frame - 1:05}.png")
             current_frame_path = os.path.join(self.output_path, f"{self.frame:05}.png")
             scene_progress = step_in_scene / total_frames
+            self.scene_progress = step_in_scene / total_frames
             if not os.path.exists(current_frame_path):
                 logging.info(f"Rendering overall frame {self.frame} in scene with prompt {scene.prompt}, "
                              f"progress: {scene_progress}")
@@ -174,11 +180,13 @@ class Runner:
         return mechanism
 
     def generate_and_save_frame(self, context, mechanism, scene, path, progress):
+        template_dict = {'math': math,
+                         'scene_progress': progress,
+                         }
+        # Add function context
+        template_dict.update(self.func_util.update_math_env(self.t))
         evaluated_prompt = Template(scene.prompt).render(
-            {'math': math,
-             'scene_progress': progress,
-             'round': round,
-             })
+            template_dict)
         logging.info(f"Evaluated prompt {evaluated_prompt}")
         image_frame, context = mechanism.generate(scene.mechanism_parameters, context, evaluated_prompt, self.t)
         image_frame.save(path)

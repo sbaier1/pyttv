@@ -27,6 +27,8 @@ Additionally, dynamic context is added to the function context, depending on you
   * Adds a configurable variable name for each filter, which is in the `[0..1]` range.
 * beats mechanism
   * Adds a `is_beat` variable that is either 1 or 0, depending on whether the current frame time is withing the range of a beat.
+* runner (always available)
+  * Adds a `scene_progress` variable that tracks how far along the animation is within the current scene in the `[0..1]` range. 
 
 ## Input mechanisms
 
