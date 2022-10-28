@@ -35,6 +35,8 @@ reactivity_types = {
     "midi": MidiInput,
 }
 
+scene_progress = 0
+
 
 class Runner:
     def __init__(self, cfg: RootConfig):
@@ -52,8 +54,7 @@ class Runner:
         self.frame = 0
         self.t = float(0)
         self.scene_offset = 0
-        self.scene_progress = 0
-        self.func_util.add_callback("runner_scene_progress", self.get_scene_progress)
+        self.func_util.add_callback("runner_scene_progress", get_scene_progress)
         # TODO: ensure/create output dir
         self.initialize_additional_context()
 
@@ -128,9 +129,6 @@ class Runner:
         frame_seconds = 1 / self.cfg.frames_per_second
         return int(duration / frame_seconds)
 
-    def get_scene_progress(self):
-        return self.scene_progress
-
     def handle_scene(self, scene: Scene, offset,
                      interpolation_frames, prev_prompt=None, init_context={}):
         mechanism = self.get_or_initialize_mechanism(scene)
@@ -144,7 +142,6 @@ class Runner:
             prev_frame_path = os.path.join(self.output_path, f"{self.frame - 1:05}.png")
             current_frame_path = os.path.join(self.output_path, f"{self.frame:05}.png")
             scene_progress = step_in_scene / total_frames
-            self.scene_progress = step_in_scene / total_frames
             if not os.path.exists(current_frame_path):
                 logging.info(f"Rendering overall frame {self.frame} in scene with prompt {scene.prompt}, "
                              f"progress: {scene_progress}")
@@ -245,3 +242,10 @@ def parse_time(time_str):
         logging.warning(f"Time string {time_str} evaluated to 0s. 0 durations typically don't need to be specified."
                         f" (Could be a parser error)")
     return result
+
+
+# noinspection PyUnusedLocal
+def get_scene_progress(t):
+    return {
+        'scene_progress': scene_progress
+    }

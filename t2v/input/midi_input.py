@@ -7,7 +7,7 @@ from omegaconf import DictConfig
 
 from t2v.config.root import RootConfig
 from t2v.input.input_mechanism import InputVariableMechanism
-from t2v.input.midi_notes import name_to_note
+from t2v.input.midi_notes import name_to_note, name_to_note_no_oct
 
 
 class MidiInput(InputVariableMechanism):
@@ -90,17 +90,37 @@ class MidiInput(InputVariableMechanism):
                 res[f"{self.prefix}notes_currently_on"].update(self.notes_playing[note_time])
         return res
 
-    def prompt_modulator_callback(self, t) -> typing.Dict[str, str]:
+    def prompt_modulator_callback(self, t) -> typing.Dict[str, object]:
         return super().prompt_modulator_callback(t)
 
 
 def note_playing(notes, note):
     """
-    Helper function for testing if a note is being played when evaluating
+    Helper function for testing if a note is being played when evaluating.
+    When multiple notes are provided, this will return 1 if ANY of them is playing.
+    If you want to check if multiple notes are playing, use multiple calls to this function and mathematical operations.
     :param notes: note dict
     :param note: note to check for
     :return: whether the note is being played in the given dict.
     """
+    if isinstance(note, list):
+        new_list = []
+        # Ensure all notes are numbers first
+        for inst in note:
+            new_list.append(note_to_number(inst))
+        for note in new_list:
+            if note in notes:
+                return 1
+            else:
+                return 0
+    note = note_to_number(note)
+    if note in notes:
+        return 1
+    else:
+        return 0
+
+
+def note_to_number(note):
     if isinstance(note, str):
         # convert to note number first
         if note in name_to_note:
@@ -108,7 +128,11 @@ def note_playing(notes, note):
         else:
             logging.warning(f"Could not find note with name {note} in note map. "
                             f"See midi_notes.py to see a full list of note names.")
-    if note in notes:
-        return 1
-    else:
-        return 0
+    return note
+
+
+def note_playing_any_oct(notes, note):
+    """
+    Checks if some (str type) note is playing, regardless of octave
+    """
+    note_playing(notes, name_to_note_no_oct[note])
