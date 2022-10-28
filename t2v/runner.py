@@ -207,11 +207,20 @@ class Runner:
     def initialize_additional_context(self):
         if "additional_context" in self.cfg and self.cfg.additional_context is not None:
             input_mechanisms = self.cfg.additional_context.input_mechanisms
+            types = {}
             for mechanism in input_mechanisms:
                 logging.info("Initializing input mechanisms...")
-                cls = reactivity_types.get(mechanism.type)
+                mechanism_type_name = mechanism.type
+                cls = reactivity_types.get(mechanism_type_name)
                 instance = cls(mechanism.mechanism_parameters, self.cfg)
-                self.func_util.add_callback(mechanism.type, instance.func_var_callback)
+                if mechanism_type_name not in types:
+                    types[mechanism_type_name] = 1
+                    self.func_util.add_callback(mechanism_type_name, instance.func_var_callback)
+                else:
+                    # Add suffix for multiple instances of the same type
+                    self.func_util.add_callback(mechanism_type_name + f"_{types[mechanism_type_name] + 1}",
+                                                instance.func_var_callback)
+                    types[mechanism_type_name] += 1
 
 
 def parse_time(time_str):
