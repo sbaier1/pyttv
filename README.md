@@ -44,6 +44,20 @@ cat *.png | ffmpeg -framerate 18 -f image2pipe -i - -c:v libx264 -pix_fmt yuv420
 ```
 where `18` is to be replaced by your fps of course and `out.mp4` is the output filename.
 
+#### Appending audio
+
+```shell
+ffmpeg -i out.mp4 -i audio.flac out_audio.mp4
+```
+
+#### Appending audio with an offset + limited duration
+
+Example: Append audio, but the audio gets offset by 55s (`-ss`) and the audio duration is 5 seconds: 
+
+```shell
+ffmpeg -i out.mp4 -ss 00:00:55.0 -t 00:00:05.0 -i audio.flac out_audio.mp4
+```
+
 ### macOS notes
 
 If you use an M1 mac, use `torch_device: cpu` in your configs. unfortunately the depth model currently does not work directly on the mps device.
