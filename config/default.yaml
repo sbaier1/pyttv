@@ -164,7 +164,7 @@ mechanisms:
       # Euler a, LMS, ...
       sampler: Euler a
       scale: 9.5
-      # This is denoising strength here, lower = better flow
+      # This is the inverse of the denoising strength. 1 = keep original frame, 0 = denoising strength 1.0, maintain as little as possible
       strength_schedule: (min(1.0, 0.76-(note_playing(notes, 36)*0.5)+(is_turbo_step*0.12))) #(sin(6*t)**20)*0.2
       # Type of animation to apply between frames, if any
       animation: 3D

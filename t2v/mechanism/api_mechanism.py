@@ -56,7 +56,7 @@ IMG2IMG = """
     "data:image/png;base64,{pngbase64}"
   ],
   "resize_mode": 0,
-  "denoising_strength": 0.75,
+  "denoising_strength": {strength},
   "mask": null,
   "mask_blur": 4,
   "inpainting_fill": 0,
@@ -85,7 +85,7 @@ IMG2IMG = """
   "s_churn": 0,
   "s_tmax": 0,
   "s_tmin": 0,
-  "s_noise": {strength},
+  "s_noise": 0,
   "override_settings": {{}},
   "sampler_index": "{sampler}",
   "include_init_images": false
@@ -161,24 +161,21 @@ class ApiMechanism(Mechanism):
         )
         # Threshold for enabling highres fix
         if self.root_config.width > 576 or self.root_config.height > 576:
-            max_comp = max(self.root_config.width, self.root_config.height)
-            divisor = max_comp // 512
-            aspect_ratio = max(self.root_config.width / self.root_config.height,
-                               self.root_config.height / self.root_config.width)
-            larger_comp_scaled = (max_comp // divisor)
             config_copy.update({
                 "hires_fix_enabled": "true",
                 "H_init": 0,
                 "W_init": 0,
-                "hires_denoising_strength": 0.9
             })
         else:
             config_copy.update({
                 "hires_fix_enabled": "false",
                 "H_init": 0,
                 "W_init": 0,
-                "hires_denoising_strength": 0.9
             })
+
+        # Set a default if not provided
+        if "hires_denoising_strength" not in config_copy:
+            config_copy["hires_denoising_strength"]: 0.9
         if self.index % (config_copy["turbo_steps"] + 1) != 0:
             # Turbo step, override steps params
             config_copy.update({"steps": config_copy.get("turbo_sampling_steps")})

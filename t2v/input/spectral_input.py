@@ -92,7 +92,7 @@ class SpectralAudioParser(InputVariableMechanism):
         """
         # Get the point in time (sample-offset) in the track in seconds based on sample-rate
         sample_offset = int(t * SAMPLERATE + self.offset * SAMPLERATE)
-        logging.info(f"Analyzing audio at {self.offset + t}s")
+        logging.debug(f"Analyzing audio at {self.offset + t}s")
         if sample_offset < len(self.audio_samples):
             window_samples = self.audio_samples[sample_offset:sample_offset + self.window_size]
             if len(window_samples) < self.window_size:

@@ -2,6 +2,7 @@ import logging
 import typing
 
 import mido
+import numpy as np
 from mido import tick2second, bpm2tempo
 from omegaconf import DictConfig
 
@@ -84,10 +85,12 @@ class MidiInput(InputVariableMechanism):
             if ft_min < note_time <= ft_max:
                 # noinspection PyTypeChecker
                 res[f"{self.prefix}notes"].update(self.note_on_events[note_time])
-        for note_time in self.notes_playing.keys():
-            if ft_min < note_time <= ft_max:
-                # noinspection PyTypeChecker
-                res[f"{self.prefix}notes_currently_on"].update(self.notes_playing[note_time])
+
+        # Get closest point in time prior to `t`
+        key_list = list(self.notes_playing.keys())
+        current = t + self.offset - np.array(key_list)
+        index = np.where(current >= 0, current, np.inf).argmin()
+        res[f"{self.prefix}notes_currently_on"].update(self.notes_playing[key_list[index]])
         return res
 
     def prompt_modulator_callback(self, t) -> typing.Dict[str, object]:
