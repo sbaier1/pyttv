@@ -25,7 +25,8 @@ scenes:
     mechanism: api
     # Optionally, some parameters of a mechanism may be modified at the scene-level. For example the number of steps to sample for in a diffusion model.
     mechanism_parameters:
-      strength_schedule: min(1.0, 0.63-(note_playing(notes, 36)*0.23)+(is_turbo_step*0.14)) #(sin(6*t)**20)*0.2
+      # You can also reference notes in MIDI inputs by their name. See midi_notes.py in this repo for a full list of note names.
+      strength_schedule: min(1.0, 0.63-(note_playing(notes, "C2")*0.23)+(is_turbo_step*0.14)) #(sin(6*t)**20)*0.2
       # no anim initially
       animation_parameters:
         translation_x: 0
@@ -95,7 +96,7 @@ scenes:
   - # Here we use a template to replace percentages in the prompt to shift attention during the scene. this modulates the prompt throughout the scene to give more variety.
     prompt: a beautiful abstract portrait painting of a [person:{{round(1-scene_progress, 1)}}|cloud:{{round(scene_progress*2, 1)}}] made of (fog:{{round(scene_progress*2, 1)}}), [black and white], ((visionary art))
     # How long this prompt should last at the frame rate specified above
-    duration: 6.5s
+    duration: 7s
     # Interpolation between the previous and this scene. does not add to the duration of the scene.
     interpolation: 1500ms
     # Which mechanism to use to generate frames. Must be defined with parameters and type below
@@ -163,7 +164,7 @@ mechanisms:
       # Euler a, LMS, ...
       sampler: Euler a
       scale: 9.5
-      # This is denoising strength here, lower = better flow
+      # This is the inverse of the denoising strength. 1 = keep original frame, 0 = denoising strength 1.0, maintain as little as possible
       strength_schedule: (min(1.0, 0.76-(note_playing(notes, 36)*0.5)+(is_turbo_step*0.12))) #(sin(6*t)**20)*0.2
       # Type of animation to apply between frames, if any
       animation: 3D
@@ -192,6 +193,12 @@ additional_context:
         offset: 50.5
         # override/add an initial set_tempo event at the start of the midi file if necessary (in bpm)
         tempo: 60
+        # Optional prefix for the variable names added by this mechanism. Allows using multiple MIDI inputs
+        prefix: ""
+        # Optional track name
+        # If the midi file has named tracks, select the track with the given name from the file.
+        # If not given, all tracks will be used when a multi-track file is used
+        track: ""
 
 # Spectral input mechanism: Analyzes an audio file using bandpass filters,
 # passes a variable into the functions in the `0..1` range that indicates the amplitude of the signal within the filter.

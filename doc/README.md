@@ -17,16 +17,24 @@ Additionally, dynamic context is added to the function context, depending on you
 * API mechanism: 
   * Adds a `is_turbo_step` variable that is either 1 or 0, depending on whether the current step is a turbo step.
 * MIDI mechanism:
-  * Adds a `notes` dict to the context which contains the `MIDI note number -> 1` mapping for the current frame. NOTE: At the moment, this is only `1` when the note_on event is happening in the current frame, therefore mainly useful for percussion tracks.
-  * Adds a `note_playing(dict, int)` function to the context which returns 1 or 0, depending on whether the note with the given number is currently playing.
+  * Adds a `notes` dict to the context which contains the `MIDI note number -> 1` mapping for the current frame. NOTE: this dict only contains note_on events at the current point in time. This is useful specifically for reacting to percussion.
+  * Adds a `notes_currently_on` dict to the context which contains the same mapping for the current frame. NOTE: this dict contains notes that have previously had note_on events and not yet note_off events. Essentially, this is the correct way for tracking notes for harmonic analysis.
+  * Adds a `note_playing(dict, int|str)` function to the context which returns 1 or 0, depending on whether the note with the given number (or octave-specific name) is currently playing.
+  * Adds a `note_playing_any_oct(dict, str)` function to the context which returns 1 or 0, depending on whether the note (name without octave, e.g. `C` or `Ab`) is playing
     * For example: `note_playing(notes, 36)` checks whether the MIDI note 36 (`C2`) is currently playing. See [here](https://www.inspiredacoustics.com/en/MIDI_note_numbers_and_center_frequencies) for a full table of MIDI note numbers and corresponding notes.
+    * hint: you can also use the natural "english note names"(capitalized) for checking whether a note is being played.
     * hint: to you can use `note_playing` and multiplication to figure out whether multiple notes are currently playing.
 * spectral mechanism
   * Adds a configurable variable name for each filter, which is in the `[0..1]` range.
 * beats mechanism
   * Adds a `is_beat` variable that is either 1 or 0, depending on whether the current frame time is withing the range of a beat.
+* runner (always available)
+  * Adds a `scene_progress` variable that tracks how far along the animation is within the current scene in the `[0..1]` range. 
 
 ## Input mechanisms
-TBD
 
-### 
+### MIDI mechanism
+
+The MIDI mechanism reads MIDI files and adds variables to the dynamic context which track the note status along with the animation.
+
+hint: You can use tools like omnizart, spleeter and melodyne to generate MIDI files for existing songs. These can be a bit hit or miss though. If you are lucky, someone else already transcribed your song and provided a full MIDI file with tracks for your song.

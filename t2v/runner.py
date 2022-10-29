@@ -35,6 +35,8 @@ reactivity_types = {
     "midi": MidiInput,
 }
 
+scene_progress = 0
+
 
 class Runner:
     def __init__(self, cfg: RootConfig):
@@ -52,6 +54,7 @@ class Runner:
         self.frame = 0
         self.t = float(0)
         self.scene_offset = 0
+        self.func_util.add_callback("runner_scene_progress", get_scene_progress)
         # TODO: ensure/create output dir
         self.initialize_additional_context()
 
@@ -174,11 +177,13 @@ class Runner:
         return mechanism
 
     def generate_and_save_frame(self, context, mechanism, scene, path, progress):
+        template_dict = {'math': math,
+                         'scene_progress': progress,
+                         }
+        # Add function context
+        template_dict.update(self.func_util.update_math_env(self.t))
         evaluated_prompt = Template(scene.prompt).render(
-            {'math': math,
-             'scene_progress': progress,
-             'round': round,
-             })
+            template_dict)
         logging.info(f"Evaluated prompt {evaluated_prompt}")
         image_frame, context = mechanism.generate(scene.mechanism_parameters, context, evaluated_prompt, self.t)
         image_frame.save(path)
@@ -207,11 +212,20 @@ class Runner:
     def initialize_additional_context(self):
         if "additional_context" in self.cfg and self.cfg.additional_context is not None:
             input_mechanisms = self.cfg.additional_context.input_mechanisms
+            types = {}
             for mechanism in input_mechanisms:
                 logging.info("Initializing input mechanisms...")
-                cls = reactivity_types.get(mechanism.type)
+                mechanism_type_name = mechanism.type
+                cls = reactivity_types.get(mechanism_type_name)
                 instance = cls(mechanism.mechanism_parameters, self.cfg)
-                self.func_util.add_callback(mechanism.type, instance.func_var_callback)
+                if mechanism_type_name not in types:
+                    types[mechanism_type_name] = 1
+                    self.func_util.add_callback(mechanism_type_name, instance.func_var_callback)
+                else:
+                    # Add suffix for multiple instances of the same type
+                    self.func_util.add_callback(mechanism_type_name + f"_{types[mechanism_type_name] + 1}",
+                                                instance.func_var_callback)
+                    types[mechanism_type_name] += 1
 
 
 def parse_time(time_str):
@@ -228,3 +242,10 @@ def parse_time(time_str):
         logging.warning(f"Time string {time_str} evaluated to 0s. 0 durations typically don't need to be specified."
                         f" (Could be a parser error)")
     return result
+
+
+# noinspection PyUnusedLocal
+def get_scene_progress(t):
+    return {
+        'scene_progress': scene_progress
+    }
