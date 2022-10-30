@@ -98,17 +98,6 @@ class Runner:
                         csv_writer.writerow(value_row)
                         i += 1
                         k += 1
-
-
-
-                for i in range(0, frame_count):
-                    value_row = []
-                    func_map = self.func_util.update_math_env(i / self.cfg.frames_per_second)
-                    for key in dict_keys:
-                        if key in func_map:
-                            val = func_map[key]
-                            value_row.append(val)
-                    csv_writer.writerow(value_row)
             return
         # TODO: this is pretty stateful, when resuming a run the interpolation frames will not be used.
         #  Must find and load them in that case.

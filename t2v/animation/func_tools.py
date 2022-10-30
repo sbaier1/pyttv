@@ -29,7 +29,7 @@ class FuncUtil:
 
     def parametric_eval(self, string, t, **vals):
         if isinstance(string, str):
-            memo_key = f"{string}{t}"
+            memo_key = f"{string}{t}{vals}"
             if memo_key in self.eval_memo:
                 return self.eval_memo[memo_key]
             self.math_env.update(vals)
@@ -41,8 +41,10 @@ class FuncUtil:
             return string
 
     def actual_eval(self, string, memo_key=None):
+        def func(value):
+            return ''.join(value.splitlines())
         try:
-            output = eval(string, self.math_env)
+            output = eval(func(string), self.math_env)
         except SyntaxError as e:
             raise RuntimeError("Error in parametric value " + string)
         except TypeError as e:
