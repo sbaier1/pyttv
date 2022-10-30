@@ -240,6 +240,19 @@ class ApiMechanism(Mechanism):
         self.anim_wrapper.reset_scene_state()
         self.scene_init = True
 
+    def simulate_step(self, config, t) -> dict:
+        # Start with the root (default) config
+        config_copy = dict(self.config.copy())
+        # Overlay the scene-specific params if necessary
+        if config is not None:
+            config_copy.update(config)
+        initial_dict = {
+            "strength": self.func_util.parametric_eval(config_copy["strength_schedule"], t),
+        }
+        initial_dict.update(self.anim_wrapper.simulate_step(config, t))
+        self.index += 1
+        return initial_dict
+
     def destroy(self):
         super().destroy()
 

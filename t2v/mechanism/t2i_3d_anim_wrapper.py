@@ -180,6 +180,19 @@ class T2IAnimatedWrapper(Mechanism):
             self.interpolation_strength_history = []
         return previous_image, strength_evaluated, interpolation_ended
 
+    def simulate_step(self, config, t) -> dict:
+        # Start with the root (default) config
+        config_copy = dict(self.config.copy())
+        # Overlay the scene-specific params if necessary
+        if config is not None:
+            config_copy.update(config)
+        return {
+            "noise": self.func_util.parametric_eval(config_copy.get("noise_schedule"), t),
+            "translate_x": self.func_util.parametric_eval(config_copy["animation_parameters"]["translation_x"], t),
+            "translate_y": self.func_util.parametric_eval(config_copy["animation_parameters"]["translation_y"], t),
+            "translate_z": self.func_util.parametric_eval(config_copy["animation_parameters"]["translation_z"], t),
+        }
+
     def stop_interpolation(self):
         # Interpolation finished, mark end, ensure this doesn't get called again
         self.interpolation_index = len(self.interpolation_frames) + 1

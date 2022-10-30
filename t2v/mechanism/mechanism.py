@@ -86,6 +86,11 @@ class Mechanism:
         """
         return PIL.Image.blend(image1, image2, factor)
 
+    def simulate_step(self, config, t) -> dict:
+        """
+        When running in simulation mode, mechanisms can return a dict of evaluated functions here
+        """
+
     @staticmethod
     def name():
         """
