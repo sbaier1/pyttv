@@ -14,6 +14,8 @@ class FuncUtil:
             "min": min,
             "pow": pow,
             "round": round,
+            "clamp": clamp,
+            "bell_curve": bell_curve,
             "np": np,
             "__builtins__": None,
         }
@@ -61,7 +63,7 @@ class FuncUtil:
                     prev_values = self.prev_values[func.variable_name]
                     prev_values.append(value)
                     if len(prev_values) > func.prev_values:
-                        del(prev_values[0])
+                        del (prev_values[0])
 
     def update_math_env(self, t):
         self.math_env["t"] = t
@@ -79,3 +81,16 @@ class FuncUtil:
         :param func: function to add. must take one argument (t, time in seconds as float) and return a typing.Dict[str, float]
         """
         self.callbacks[key] = func
+
+
+def clamp(minimum, maximum, val):
+    return min(maximum, max(minimum, val))
+
+
+def bell_curve(duration, offset, t, order=2):
+    """
+    a basic bell curve function with custom width (duration) and (temporal) offset
+    starting function:
+    https://www.wolframalpha.com/input?i=max%280%2C+%28-%282x-1%29%5E2%29%2B1%29
+    """
+    return clamp(0, 1, (-(2 * (1 / duration) * (t - offset) - 1) ** order) + 1)
