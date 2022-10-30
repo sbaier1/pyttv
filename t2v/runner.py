@@ -41,7 +41,7 @@ scene_progress = 0
 class Runner:
     def __init__(self, cfg: RootConfig):
         # Register mechanisms
-        self.func_util = FuncUtil()
+        self.func_util = FuncUtil(cfg)
         self.cfg = cfg
         # Stores instantiated mechanism objects by their name within the config
         self.mechanisms = {}
