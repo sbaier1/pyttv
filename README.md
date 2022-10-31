@@ -27,7 +27,7 @@ Mainly based on PyTTI and deforum, but adding and focusing around:
 - ensure web-ui is running
 - check out the [examples](config) or the [doc](doc) and build your config
 - make sure the venv is sourced (see above)
-- Run your scenario with `python3 -cp config -cn=yourconfig` where `-cp` specifies the path to your config directory and `-cn` specifies which config to run.
+- Run your scenario with `python3 -cp config -cn=yourconfig main.py` where `-cp` specifies the path to your config directory and `-cn` specifies which config to run.
 
 ### Creating the final video
 
