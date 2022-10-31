@@ -183,6 +183,14 @@ mechanisms:
 
 # Other multi-modal context
 additional_context:
+  custom_functions:
+    - # The name under which the results of the function can be used in other functions
+      variable_name: camera_movements
+      function: |
+        bell_curve(2.5, 8.5, t, 4) +
+        0
+      # Store this many previous values of this function in the function's context. Can be used via the `prev` value in the function.
+      prev_values: 0
   input_mechanisms:
 # Midi input mechanism: Reads a given midi file's note_on events
 # NOTE: currently only a single track midi file is properly supported
