@@ -30,6 +30,14 @@ Additionally, dynamic context is added to the function context, depending on you
   * Adds a `is_beat` variable that is either 1 or 0, depending on whether the current frame time is withing the range of a beat.
 * runner (always available)
   * Adds a `scene_progress` variable that tracks how far along the animation is within the current scene in the `[0..1]` range. 
+* custom_functions of course add arbitrary variables to the context as well.
+
+#### Custom variables/functions
+
+You can also add custom variables that are derived from functions. The variables can then be used in other functions.
+
+Unlike other functions, these functions can also be stateful, as in the previous values are stored in a list.
+This allows for more advanced functions like adding smoothing or slow decay to input variables. 
 
 ## Input mechanisms
 
