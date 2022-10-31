@@ -195,6 +195,9 @@ class Runner:
         template_dict.update(self.func_util.update_math_env(self.t))
         evaluated_prompt = Template(scene.prompt).render(
             template_dict)
+        def func(value):
+            return ''.join(value.splitlines())
+        evaluated_prompt = func(evaluated_prompt)
         logging.info(f"Evaluated prompt {evaluated_prompt}")
         image_frame, context = mechanism.generate(scene.mechanism_parameters, context, evaluated_prompt, self.t)
         image_frame.save(path)

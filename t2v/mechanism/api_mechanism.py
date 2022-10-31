@@ -236,7 +236,7 @@ class ApiMechanism(Mechanism):
         if res.status_code == 200:
             json = res.json()
             # We just assume the expected format for now. Errors in the format received from the API lead to crashes.
-            image = json['images'][0]
+            image = json['images'][0][22:]
             return Image.open(io.BytesIO(base64.b64decode(image)))
         else:
             logging.error(f"API request failed, response code {res.status_code}, response body: {res.text}")
