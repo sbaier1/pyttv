@@ -58,6 +58,12 @@ Example: Append audio, but the audio gets offset by 55s (`-ss`) and the audio du
 ffmpeg -i out.mp4 -ss 00:00:55.0 -t 00:00:05.0 -i audio.flac out_audio.mp4
 ```
 
+#### Upscaling
+
+If you created your video at a lower resolution, decent tools are RealESRGAN and UIs for it, e.g. [cupscale](https://github.com/n00mkrad/cupscale).
+
+Of course you can also use the WebUI for this, either by running a text conditioned upscale with batch img2img mode + SD upscale script or effectively only running ESRGAN by setting the denoising strength to 0. 
+
 ### macOS notes
 
 If you use an M1 mac, use `torch_device: cpu` in your configs. unfortunately the depth model currently does not work directly on the mps device.
