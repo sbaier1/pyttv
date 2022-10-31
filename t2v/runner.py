@@ -41,7 +41,7 @@ scene_progress = 0
 class Runner:
     def __init__(self, cfg: RootConfig):
         # Register mechanisms
-        self.func_util = FuncUtil()
+        self.func_util = FuncUtil(cfg)
         self.cfg = cfg
         # Stores instantiated mechanism objects by their name within the config
         self.mechanisms = {}
@@ -98,17 +98,6 @@ class Runner:
                         csv_writer.writerow(value_row)
                         i += 1
                         k += 1
-
-
-
-                for i in range(0, frame_count):
-                    value_row = []
-                    func_map = self.func_util.update_math_env(i / self.cfg.frames_per_second)
-                    for key in dict_keys:
-                        if key in func_map:
-                            val = func_map[key]
-                            value_row.append(val)
-                    csv_writer.writerow(value_row)
             return
         # TODO: this is pretty stateful, when resuming a run the interpolation frames will not be used.
         #  Must find and load them in that case.
@@ -206,6 +195,9 @@ class Runner:
         template_dict.update(self.func_util.update_math_env(self.t))
         evaluated_prompt = Template(scene.prompt).render(
             template_dict)
+        def func(value):
+            return ''.join(value.splitlines())
+        evaluated_prompt = func(evaluated_prompt)
         logging.info(f"Evaluated prompt {evaluated_prompt}")
         image_frame, context = mechanism.generate(scene.mechanism_parameters, context, evaluated_prompt, self.t)
         image_frame.save(path)

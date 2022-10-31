@@ -39,7 +39,7 @@ TXT2IMG = """
   "height": {H},
   "restore_faces": false,
   "tiling": false,
-  "negative_prompt": "string",
+  "negative_prompt": "{negative_prompt}",
   "eta": 0,
   "s_churn": 0,
   "s_tmax": 0,
@@ -80,7 +80,7 @@ IMG2IMG = """
   "height": {H},
   "restore_faces": false,
   "tiling": false,
-  "negative_prompt": "string",
+  "negative_prompt": "{negative_prompt}",
   "eta": 0,
   "s_churn": 0,
   "s_tmax": 0,
@@ -175,8 +175,18 @@ class ApiMechanism(Mechanism):
 
         # Set a default if not provided
         if "hires_denoising_strength" not in config_copy:
-            config_copy["hires_denoising_strength"]: 0.9
-        if self.index % (config_copy["turbo_steps"] + 1) != 0:
+            config_copy["hires_denoising_strength"] = 0.9
+        if "negative_prompt" not in config_copy:
+            config_copy["negative_prompt"] = ""
+        # else:
+        #    template_dict = {'math': math,
+        #                     'scene_progress': progress,
+        #                     }
+        #    # Add function context
+        #    template_dict.update(self.func_util.update_math_env(self.t))
+        #    evaluated_prompt = Template(scene.prompt).render(
+        #        template_dict)
+        if self.index % (self.func_util.parametric_eval(config_copy["turbo_steps"], t) + 1) != 0:
             # Turbo step, override steps params
             config_copy.update({"steps": config_copy.get("turbo_sampling_steps")})
 
@@ -226,7 +236,7 @@ class ApiMechanism(Mechanism):
         if res.status_code == 200:
             json = res.json()
             # We just assume the expected format for now. Errors in the format received from the API lead to crashes.
-            image = json['images'][0]
+            image = json['images'][0][22:]
             return Image.open(io.BytesIO(base64.b64decode(image)))
         else:
             logging.error(f"API request failed, response code {res.status_code}, response body: {res.text}")
