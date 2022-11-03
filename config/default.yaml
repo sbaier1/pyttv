@@ -143,6 +143,38 @@ scenes:
         fov: 40
         sampling_mode: bicubic
         padding_mode: border
+  - # The prompt to generate images from.
+    # This example shows prompt modulation based on a MIDI input. When a C#2 note plays in the clip, the prompt gets additional tokens added to it.
+    # Also shows tokenizing a complex, templated prompt into multiple lines using yaml multi-line string syntax.
+    prompt: |
+      a beautiful
+      { % if note_playing(notes_currently_on, "C#2") % }
+      (abstract polygon geometric:1.4)
+      {% endif %}
+      painting 
+      of a vast valley with a forest and a river on a sunny day with the blue sky above, intricate, [[[by M.C. Escher]]], (wide field of view)
+    # How long this prompt should last at the frame rate specified above
+    duration: 12s
+    # Interpolation between the previous and this scene. does not add to the duration of the scene.
+    interpolation: 2000ms
+    # Which mechanism to use to generate frames. Must be defined with parameters and type below
+    mechanism: api
+    # Optionally, some parameters of a mechanism may be modified at the scene-level. For example the number of steps to sample for in a diffusion model.
+    mechanism_parameters:
+      # Overrides the mechanism parameters below
+      strength_schedule: (min(1.0, 0.62-(note_playing(notes, 36)*0.26)+(is_turbo_step*0.16))) #(sin(6*t)**20)*0.2
+      # more abrupt interpolation at the end
+      interpolation_function: x
+      animation_parameters:
+        translation_x: (note_playing(notes, 36)*6)+sin(0.4*t)
+        translation_y: 0
+        translation_z: 2.4+note_playing(notes, 36)*2
+        # depth model parameters
+        near_plane: 200
+        far_plane: 10000
+        fov: 40
+        sampling_mode: bicubic
+        padding_mode: border
 
 mechanisms:
   - # Name of this parameter set within the config. Can be referenced in scenes
