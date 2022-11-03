@@ -74,7 +74,7 @@ class Runner:
                 for scene in self.cfg.scenes:
                     mechanism = self.get_or_initialize_mechanism(scene)
                     func_map.update(mechanism.simulate_step(scene.mechanism_parameters, 0))
-                dict_keys = ["t"]
+                dict_keys = ["index", "t"]
                 for key in func_map.keys():
                     val = func_map[key]
                     if not isinstance(val, ModuleType) \
@@ -91,6 +91,7 @@ class Runner:
                         t = i / self.cfg.frames_per_second
                         func_map = self.func_util.update_math_env(t)
                         func_map.update(mechanism.simulate_step(scene.mechanism_parameters, t))
+                        func_map["index"] = i
                         for key in dict_keys:
                             if key in func_map:
                                 val = func_map[key]

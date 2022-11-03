@@ -68,11 +68,14 @@ class T2IAnimatedWrapper(Mechanism):
                             cv2.cvtColor(warped_frame.astype(np.uint8), cv2.COLOR_RGB2BGR))
             # Color match
             if self.color_match_sample is not None:
-                warped_frame = maintain_colors(warped_frame, self.color_match_sample, 'Match Frame 0 LAB')
-
+                warped_frame = maintain_colors(warped_frame, self.color_match_sample, 'Match Frame 0 HSV')
             # TODO: parameters for contrast schedule, noise schedule
             # apply scaling
-            # contrast_sample = warped_frame * 0.95
+            contrast_evaluated = self.func_util.parametric_eval(
+                merged_config.get("contrast_schedule") if "contrast_schedule" in merged_config else 1, t)
+            #warped_frame = cv2_blend(warped_frame, exposure.adjust_log(warped_frame, 1), 0.1)
+            warped_frame = warped_frame * contrast_evaluated + (255 * (1 - contrast_evaluated))
+            warped_frame = warped_frame.astype(np.uint8)
 
             # Frame noising
             noised_sample = add_noise(sample_from_cv2(warped_frame),
