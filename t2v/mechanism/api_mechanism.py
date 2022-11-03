@@ -13,9 +13,6 @@ from t2v.config.root import RootConfig
 from t2v.mechanism.mechanism import Mechanism
 from t2v.mechanism.t2i_3d_anim_wrapper import T2IAnimatedWrapper
 
-# Generated with revision 604620a7f08d1126a8689f9f4bec8ade0801a69b,
-# diff the template with a captured query of a more recent version to update these when necessary
-
 TXT2IMG = """
 {{
   "enable_hr": {hires_fix_enabled},
@@ -68,8 +65,8 @@ IMG2IMG = """
     "string"
   ],
   "seed": {seed},
-  "subseed": -1,
-  "subseed_strength": 0,
+  "subseed": {subseed},
+  "subseed_strength": 0.985,
   "seed_resize_from_h": -1,
   "seed_resize_from_w": -1,
   "batch_size": 1,
@@ -106,9 +103,9 @@ class ApiMechanism(Mechanism):
 
     def is_turbo_step(self, t):
         if self.index % (self.config["turbo_steps"] + 1) == 0:
-            return {"is_turbo_step": 0}
+            return {"is_turbo_step": 0, "index": self.index}
         else:
-            return {"is_turbo_step": 1}
+            return {"is_turbo_step": 1, "index": self.index}
 
     def generate(self, config: DictConfig, context, prompt: str, t):
         return self.anim_wrapper.generate(config, context, prompt, t)
@@ -132,7 +129,8 @@ class ApiMechanism(Mechanism):
         else:
             # Invert input strength because it works the other way round in this mechanism
             config_copy.update({"strength": min(0.95, max(0, 1 - context['strength']))})
-
+        # handle CFG scale schedule if necessary
+        config_copy["scale"] = self.func_util.parametric_eval(config_copy.get("scale"), t)
         # TODO: key latents don't work here atm. img2img is too different from txt2img with scaled latents.
         #   idea: implement img2img module for automatic1111 for slerping between prompts, use that to generate all interpolation frames and write them directly.
         #   idea(easier?): generate the key latent image first, then run img2img between prev prompt with down-sloping denoising (denoise 0 in last step to finish transition)
@@ -156,7 +154,8 @@ class ApiMechanism(Mechanism):
                 "H": self.root_config.height,
                 "prompt": prompt,
                 # Offset the seed
-                "seed": config_copy["seed"] + self.index,
+                "seed": config_copy["seed"],
+                "subseed": config_copy["seed"] + self.index,
             }
         )
         # Threshold for enabling highres fix
@@ -236,7 +235,7 @@ class ApiMechanism(Mechanism):
         if res.status_code == 200:
             json = res.json()
             # We just assume the expected format for now. Errors in the format received from the API lead to crashes.
-            image = json['images'][0][22:]
+            image = json['images'][0]
             return Image.open(io.BytesIO(base64.b64decode(image)))
         else:
             logging.error(f"API request failed, response code {res.status_code}, response body: {res.text}")

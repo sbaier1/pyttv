@@ -163,7 +163,11 @@ mechanisms:
       steps: 35
       # Euler a, LMS, ...
       sampler: Euler a
+      # CFG scale, can be a function
       scale: 9.5
+      # Reduce contrast of individual frames before passing them to img2img again.
+      # This helps keep the color spectrum more dynamic as stable diff (specifically for higher CFG scale values) tends to oversaturate the images over time
+      contrast_schedule: 0.982
       # This is the inverse of the denoising strength. 1 = keep original frame, 0 = denoising strength 1.0, maintain as little as possible
       strength_schedule: (min(1.0, 0.76-(note_playing(notes, 36)*0.5)+(is_turbo_step*0.12))) #(sin(6*t)**20)*0.2
       # Type of animation to apply between frames, if any

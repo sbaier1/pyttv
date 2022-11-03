@@ -13,6 +13,7 @@ class FuncUtil:
             "max": max,
             "min": min,
             "pow": pow,
+            "int": int,
             "round": round,
             "clamp": clamp,
             "bell_curve": bell_curve,
