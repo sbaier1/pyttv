@@ -87,8 +87,9 @@ class Animator3D(Animator):
         offset_coords_2d = coords_2d - torch.reshape(offset_xy, (h, w, 2)).unsqueeze(0)
 
         image_tensor = rearrange(torch.from_numpy(prev_img_cv2.astype(np.float32)), 'h w c -> c h w').to(self.device)
+        # TODO: can we somehow pad the image by inpainting? or return a mask of to-be-padded pixels?
         new_image = torch.nn.functional.grid_sample(
-            image_tensor.add(1 / 512 - 0.0001).unsqueeze(0),
+            image_tensor.unsqueeze(0),
             offset_coords_2d,
             mode=anim_args["sampling_mode"],
             padding_mode=anim_args["padding_mode"],

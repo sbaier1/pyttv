@@ -94,6 +94,7 @@ class ApiMechanism(Mechanism):
         super().__init__(config, root_config, func_util)
         self.root_config = root_config
         self.config = config
+        self.current_config = dict(config)
         self.func_util = func_util
         func_util.add_callback("isTurboStep", self.is_turbo_step)
         self.host = self.config.get("host")
@@ -102,10 +103,9 @@ class ApiMechanism(Mechanism):
         self.scene_init = True
 
     def is_turbo_step(self, t):
-        if self.index % (self.config["turbo_steps"] + 1) == 0:
-            return {"is_turbo_step": 0, "index": self.index}
-        else:
-            return {"is_turbo_step": 1, "index": self.index}
+        return {"is_turbo_step": 0 if self.index % (self.current_config["turbo_steps"] + 1) == 0 else 1,
+                "index": self.index,
+                "interpolation_ongoing": 1 if self.anim_wrapper.interpolation_ongoing else 0}
 
     def generate(self, config: DictConfig, context, prompt: str, t):
         return self.anim_wrapper.generate(config, context, prompt, t)
@@ -131,6 +131,7 @@ class ApiMechanism(Mechanism):
             config_copy.update({"strength": min(0.95, max(0, 1 - context['strength']))})
         # handle CFG scale schedule if necessary
         config_copy["scale"] = self.func_util.parametric_eval(config_copy.get("scale"), t)
+        self.current_config.update(config_copy)
         # TODO: key latents don't work here atm. img2img is too different from txt2img with scaled latents.
         #   idea: implement img2img module for automatic1111 for slerping between prompts, use that to generate all interpolation frames and write them directly.
         #   idea(easier?): generate the key latent image first, then run img2img between prev prompt with down-sloping denoising (denoise 0 in last step to finish transition)
@@ -189,6 +190,12 @@ class ApiMechanism(Mechanism):
             # Turbo step, override steps params
             config_copy.update({"steps": config_copy.get("turbo_sampling_steps")})
 
+        if config_copy["strength"] <= 0 and "prev_image" in context:
+            logging.info("Skipping img2img due to strength <= 0")
+            return Image.fromarray(context["prev_image"]), {
+                "prev_frame": context["prev_image"]
+            }
+
         logging.info(f"Config map for api mechanism {config_copy}")
         # TODO: if the scene has an init seed: discard the prev image and run txt2img if interpolation is 0,
         #  or track interpolation progress and run the txt2img with the start seed at the end of the interpolation
@@ -225,7 +232,9 @@ class ApiMechanism(Mechanism):
         # Encode image
         buffered = io.BytesIO()
         img.save(buffered, format="PNG")
-
+        if config_param["strength"] <= 0:
+            logging.info("Skipping img2img due to strength <= 0")
+            return img
         # clip off the "byte" indicators in the result string
         img_str = str(base64.b64encode(buffered.getvalue()))[2:-1]
         body = IMG2IMG.format(**config_param,

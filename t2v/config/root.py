@@ -11,7 +11,7 @@ class RootConfig:
     """
     The root of the config file
     """
-    frames_per_second: int
+    frames_per_second: float
     scenes: List[Scene]
     mechanisms: List[MechanismDefinition]
     width: int
