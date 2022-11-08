@@ -143,11 +143,11 @@ class ApiMechanism(Mechanism):
         # del context["prev_image"]
 
         # A new scene just started, initialize if necessary
-        if self.scene_init:
-            # The new scene contains a specific override seed (i.e. an "init latent"),
-            # make sure we start exactly from the one the user specified
-            if "seed" in config:
-                self.index = 0
+        # if self.scene_init:
+        # The new scene contains a specific override seed (i.e. an "init latent"),
+        # make sure we start exactly from the one the user specified
+        # if "seed" in config:
+        # self.index = 0
         # TODO proper config overlaying
         config_copy.update(
             {
@@ -192,6 +192,7 @@ class ApiMechanism(Mechanism):
 
         if config_copy["strength"] <= 0 and "prev_image" in context:
             logging.info("Skipping img2img due to strength <= 0")
+            self.index = self.index + 1
             return Image.fromarray(context["prev_image"]), {
                 "prev_frame": context["prev_image"]
             }
@@ -259,16 +260,18 @@ class ApiMechanism(Mechanism):
         self.scene_init = True
 
     def simulate_step(self, config, t) -> dict:
+        self.index = int(t * self.root_config.frames_per_second)
         # Start with the root (default) config
         config_copy = dict(self.config.copy())
         # Overlay the scene-specific params if necessary
         if config is not None:
             config_copy.update(config)
+        self.current_config = config_copy
         initial_dict = {
             "strength": self.func_util.parametric_eval(config_copy["strength_schedule"], t),
         }
         initial_dict.update(self.anim_wrapper.simulate_step(config, t))
-        self.index += 1
+        initial_dict.update(self.is_turbo_step(t))
         return initial_dict
 
     def destroy(self):

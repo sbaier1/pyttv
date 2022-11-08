@@ -74,10 +74,10 @@ class Runner:
             total_delta += cur_delta
             timestamp = f"{int(total_delta.total_seconds() / 60):02.0f}" \
                         f":{int(total_delta.total_seconds() % 60):02.0f}" \
-                        f".{((total_delta.total_seconds()-int(total_delta.total_seconds())) * 1000):03.0f}"
+                        f".{((total_delta.total_seconds() - int(total_delta.total_seconds())) * 1000):03.0f}"
             logging.info(
                 f"Scene will run up to {timestamp} for {cur_delta.total_seconds():02.02f}s with prompt {scene.prompt}")
-        logging.info(f"Total duration of scenario: ")
+        logging.info(f"Total duration of scenario: {total_delta.total_seconds():.3f}s")
         for i in range(self.scene_offset, len(self.cfg.scenes)):
             scene = self.cfg.scenes[i]
             logging.info(f"Rendering scene with prompt {scene.prompt}")
