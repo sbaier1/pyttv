@@ -21,8 +21,7 @@ from t2v.mechanism.noop_mechanism import NoopMechanism
 
 INTERPOLATE_DIRECTORY = "_interpolate"
 
-time_regex = re.compile(
-    r'(?=((?P<milliseconds>\d+?)ms)?)(?=((?P<hours>\d+?)hr)?)(?=((?P<minutes>\d+?)m(?!s))?)(?=((?P<seconds>\d+?)s)?)')
+time_regex = re.compile(r'((?P<hours>\d+?)hr)?((?P<minutes>\d+?)m)?((?P<seconds>\d+?)s)?((?P<milliseconds>\d+)?ms)?')
 
 mechanism_types = {
     NoopMechanism.name(): NoopMechanism,
@@ -61,50 +60,26 @@ class Runner:
     def run(self):
         logging.debug(f"Launching with config:\n{OmegaConf.to_yaml(self.cfg)}")
         if "simulate_output" in self.cfg:
-            logging.info(f"Running in simulation mode. Saving result to {self.cfg.simulate_output}")
-            duration = 0
-            for scene in self.cfg.scenes:
-                self.get_or_initialize_mechanism(scene)
-                duration += parse_time(scene.duration).total_seconds()
-            frame_count = self.get_frame_count(duration)
-            with open(self.cfg.simulate_output, 'w') as csvfile:
-                csv_writer = csv.writer(csvfile)
-                # header
-                func_map = self.func_util.update_math_env(0)
-                for scene in self.cfg.scenes:
-                    mechanism = self.get_or_initialize_mechanism(scene)
-                    func_map.update(mechanism.simulate_step(scene.mechanism_parameters, 0))
-                dict_keys = ["index", "t"]
-                for key in func_map.keys():
-                    val = func_map[key]
-                    if not isinstance(val, ModuleType) \
-                            and not hasattr(val, '__call__') \
-                            and key not in ["t", "pi", "tau", "e", "__builtins__", "inf", "nan"]:
-                        dict_keys.append(key)
-                csv_writer.writerow(dict_keys)
-                i = 0
-                for scene in self.cfg.scenes:
-                    mechanism = self.get_or_initialize_mechanism(scene)
-                    k = 0
-                    while k < self.cfg.frames_per_second * parse_time(scene.duration).total_seconds():
-                        value_row = []
-                        t = i / self.cfg.frames_per_second
-                        func_map = self.func_util.update_math_env(t)
-                        func_map.update(mechanism.simulate_step(scene.mechanism_parameters, t))
-                        func_map["index"] = i
-                        for key in dict_keys:
-                            if key in func_map:
-                                val = func_map[key]
-                                value_row.append(val)
-                        csv_writer.writerow(value_row)
-                        i += 1
-                        k += 1
+            self.simulate_scenario()
             return
         # TODO: this is pretty stateful, when resuming a run the interpolation frames will not be used.
         #  Must find and load them in that case.
         interpolation_frames = []
         prev_prompt = None
         last_context = {}
+        total_delta = timedelta()
+        for i in range(0, len(self.cfg.scenes)):
+            scene = self.cfg.scenes[i]
+            cur_delta = parse_time(scene.duration)
+            total_delta += cur_delta
+            timestamp = f"{int(total_delta.total_seconds() / 60):02.0f}" \
+                        f":{int(total_delta.total_seconds() % 60):02.0f}" \
+                        f".{((total_delta.total_seconds() - int(total_delta.total_seconds())) * 1000):03.0f}"
+            logging.info(
+                f"Scene will run up to {timestamp} "
+                f"(frame {int(total_delta.total_seconds() * self.cfg.frames_per_second):05.0f}) "
+                f"for {cur_delta.total_seconds():02.02f}s with prompt {scene.prompt}")
+        logging.info(f"Total duration of scenario: {total_delta.total_seconds():.3f}s")
         for i in range(self.scene_offset, len(self.cfg.scenes)):
             scene = self.cfg.scenes[i]
             logging.info(f"Rendering scene with prompt {scene.prompt}")
@@ -131,6 +106,47 @@ class Runner:
                     prev_prompt = scene.prompt
                     mechanism.set_interpolation_state(interpolation_frames, prev_prompt)
                     mechanism.reset_scene_state()
+
+    def simulate_scenario(self):
+        logging.info(f"Running in simulation mode. Saving result to {self.cfg.simulate_output}")
+        duration = 0
+        for scene in self.cfg.scenes:
+            self.get_or_initialize_mechanism(scene)
+            duration += parse_time(scene.duration).total_seconds()
+        frame_count = self.get_frame_count(duration)
+        with open(self.cfg.simulate_output, 'w') as csvfile:
+            csv_writer = csv.writer(csvfile)
+            # header
+            func_map = self.func_util.update_math_env(0)
+            for scene in self.cfg.scenes:
+                mechanism = self.get_or_initialize_mechanism(scene)
+                func_map.update(mechanism.simulate_step(scene.mechanism_parameters, 0))
+            dict_keys = ["index", "t"]
+            for key in func_map.keys():
+                val = func_map[key]
+                if not isinstance(val, ModuleType) \
+                        and not hasattr(val, '__call__') \
+                        and key not in ["t", "pi", "tau", "e", "__builtins__", "inf", "nan"]:
+                    dict_keys.append(key)
+            csv_writer.writerow(dict_keys)
+            i = 0
+            for scene in self.cfg.scenes:
+                mechanism = self.get_or_initialize_mechanism(scene)
+                k = 0
+                while k < self.cfg.frames_per_second * parse_time(scene.duration).total_seconds():
+                    value_row = []
+                    t = i / self.cfg.frames_per_second
+                    scene_progress = k / (self.cfg.frames_per_second * parse_time(scene.duration).total_seconds())
+                    func_map = self.func_util.update_math_env(t)
+                    func_map.update(mechanism.simulate_step(scene.mechanism_parameters, t))
+                    func_map["index"] = i
+                    for key in dict_keys:
+                        if key in func_map:
+                            val = func_map[key]
+                            value_row.append(val)
+                    csv_writer.writerow(value_row)
+                    i += 1
+                    k += 1
 
     def get_frame_count(self, duration: float):
         """
@@ -196,8 +212,10 @@ class Runner:
         template_dict.update(self.func_util.update_math_env(self.t))
         evaluated_prompt = Template(scene.prompt).render(
             template_dict)
+
         def func(value):
             return ''.join(value.splitlines())
+
         evaluated_prompt = func(evaluated_prompt)
         logging.info(f"Evaluated prompt {evaluated_prompt}")
         image_frame, context = mechanism.generate(scene.mechanism_parameters, context, evaluated_prompt, self.t)

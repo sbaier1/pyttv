@@ -38,7 +38,7 @@ class T2IAnimatedWrapper(Mechanism):
         # Some additional interpolation state
         self.interpolation_strength_history = []
 
-    def generate(self, config: DictConfig, context, prompt: str, t):
+    def generate(self, config: dict, context, prompt: str, t):
         super().generate(config, context, prompt, t)
         # Overlay config
         merged_config = dict(self.config.copy())
@@ -61,32 +61,64 @@ class T2IAnimatedWrapper(Mechanism):
             previous_image, strength_evaluated, interpolation_end = self.interpolate(merged_config, previous_image,
                                                                                      strength_evaluated, t)
             # Warp
-            warped_frame = self.animator.apply(np.array(previous_image), prompt,
-                                               merged_config.get("animation_parameters"), t)
+            current_frame = np.array(previous_image)
             if debug:
-                cv2.imwrite(os.path.join(self.root_config.output_path, f"{self.index:05}_warped.png"),
-                            cv2.cvtColor(warped_frame.astype(np.uint8), cv2.COLOR_RGB2BGR))
+                cv2.imwrite(os.path.join(self.root_config.output_path, f"{self.index:05}_0_original.png"),
+                            cv2.cvtColor(current_frame.astype(np.uint8), cv2.COLOR_RGB2BGR))
             # Color match
             if self.color_match_sample is not None:
-                warped_frame = maintain_colors(warped_frame, self.color_match_sample, 'Match Frame 0 HSV')
+                current_frame = maintain_colors(current_frame, self.color_match_sample, 'Match Frame 0 LAB')
+            if debug:
+                cv2.imwrite(os.path.join(self.root_config.output_path, f"{self.index:05}_1_color_matched.png"),
+                            cv2.cvtColor(current_frame.astype(np.uint8), cv2.COLOR_RGB2BGR))
             # TODO: parameters for contrast schedule, noise schedule
             # apply scaling
             contrast_evaluated = self.func_util.parametric_eval(
                 merged_config.get("contrast_schedule") if "contrast_schedule" in merged_config else 1, t)
-            #warped_frame = cv2_blend(warped_frame, exposure.adjust_log(warped_frame, 1), 0.1)
-            warped_frame = warped_frame * contrast_evaluated + (255 * (1 - contrast_evaluated))
-            warped_frame = warped_frame.astype(np.uint8)
+            # warped_frame = cv2_blend(warped_frame, exposure.adjust_log(warped_frame, 1), 0.1)
+            if contrast_evaluated < 1:
+                current_frame = current_frame * contrast_evaluated
 
+                def increase_brightness(img, value):
+                    hsv = cv2.cvtColor(img.astype(np.uint8), cv2.COLOR_RGB2HSV)
+                    h, s, v = cv2.split(hsv)
+
+                    lim = 255 - value
+                    v[v > lim] = 255
+                    v[v <= lim] += value
+
+                    final_hsv = cv2.merge((h, s, v))
+                    img = cv2.cvtColor(final_hsv, cv2.COLOR_HSV2RGB)
+                    return img
+
+                # scale individual color channels back up in brightness
+                current_frame = increase_brightness(current_frame, round(255 * (1 - contrast_evaluated)))
+                current_frame = current_frame.astype(np.uint8)
+
+            if debug:
+                cv2.imwrite(os.path.join(self.root_config.output_path, f"{self.index:05}_2_contrast_adjusted.png"),
+                            cv2.cvtColor(current_frame.astype(np.uint8), cv2.COLOR_RGB2BGR))
             # Frame noising
-            noised_sample = add_noise(sample_from_cv2(warped_frame),
-                                      self.func_util.parametric_eval(merged_config.get("noise_schedule"), t))
-            # Convert back to image
-            noised_image = sample_to_cv2(noised_sample)
+            noise_value = self.func_util.parametric_eval(merged_config.get("noise_schedule"), t)
+            if noise_value > 0:
+                noised_sample = add_noise(sample_from_cv2(current_frame),
+                                          noise_value)
+                # Convert back to image
+                current_frame = sample_to_cv2(noised_sample)
+            if debug:
+                cv2.imwrite(os.path.join(self.root_config.output_path, f"{self.index:05}_3_noised.png"),
+                            cv2.cvtColor(current_frame.astype(np.uint8), cv2.COLOR_RGB2BGR))
+            current_frame = self.animator.apply(current_frame, prompt,
+                                                merged_config.get("animation_parameters"), t)
+            if debug:
+                cv2.imwrite(os.path.join(self.root_config.output_path, f"{self.index:05}_4_warped.png"),
+                            cv2.cvtColor(current_frame.astype(np.uint8), cv2.COLOR_RGB2BGR))
+
             if "wrapped_context" in context:
-                context["wrapped_context"]["prev_image"] = noised_image
+                context["wrapped_context"]["prev_image"] = current_frame
             else:
                 context["wrapped_context"] = {
-                    "prev_image": noised_image
+                    "prev_image": current_frame
                 }
         self.index = self.index + 1
 
@@ -162,14 +194,15 @@ class T2IAnimatedWrapper(Mechanism):
             # modulate the denoising strength while the interpolation is ongoing to retain more of the interpolation frames at the start, then make sure we reach 0 strength at the end
             strength_evaluated_prev = strength_evaluated
             if not self.interpolation_transition_complete:
-                strength_evaluated = min(0.9, max(0.1, strength_evaluated + (1 - ((factor ** 1.4) * 1.65))))
+                strength_evaluated = min(0.9, max(0.1, strength_evaluated + (1 - ((factor ** 1.4) * 1.2))))
                 logging.info(
                     f"strength modulation: {strength_evaluated_prev} -> {strength_evaluated}. "
                     f"diff: {abs(strength_evaluated - strength_evaluated_prev)}, at evaluated percentage {factor}")
                 self.interpolation_strength_history.append(strength_evaluated)
-            if strength_evaluated < 0.25 \
-                    or np.average(np.array(self.interpolation_strength_history)
-                                  * np.linspace(0, 1, len(self.interpolation_strength_history)) ** 0.5) < 0.4:
+            if strength_evaluated < 0.35 \
+                    or (len(self.interpolation_strength_history) > 1
+                        and np.average(np.array(self.interpolation_strength_history)
+                                       * np.linspace(0, 1, len(self.interpolation_strength_history)) ** 2) < 0.245):
                 # Stop modulating strength if the current step or
                 # the average of recent steps' strength is fairly low,
                 # just assume we finished the transition
@@ -201,5 +234,6 @@ class T2IAnimatedWrapper(Mechanism):
         self.interpolation_index = len(self.interpolation_frames) + 1
         self.interpolation_frames = []
         self.interpolation_prev_prompt = None
+        self.interpolation_ongoing = False
         # Reset color matching again so we can start over fresh with the new scene now
         self.color_match_sample = None

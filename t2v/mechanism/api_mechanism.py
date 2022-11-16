@@ -47,6 +47,7 @@ TXT2IMG = """
 }}
 """
 
+# TODO: test: inpaint instead of regular: inpaint unmasked, provide no mask (inpaint entire image), inpaint at full resolution. should lead to hires fix being used.
 IMG2IMG = """
 {{
   "init_images": [
@@ -54,19 +55,19 @@ IMG2IMG = """
   ],
   "resize_mode": 0,
   "denoising_strength": {strength},
-  "mask": null,
-  "mask_blur": 4,
-  "inpainting_fill": 0,
+  "mask": "data:image/png;base64,{maskbase64}",
+  "mask_blur": 0,
+  "inpainting_fill": 1,
   "inpaint_full_res": true,
   "inpaint_full_res_padding": 0,
-  "inpainting_mask_invert": 0,
+  "inpainting_mask_invert": 1,
   "prompt": "{prompt}",
   "styles": [
     "string"
   ],
-  "seed": {seed},
+  "seed": {subseed},
   "subseed": {subseed},
-  "subseed_strength": 0.985,
+  "subseed_strength": 0.99999,
   "seed_resize_from_h": -1,
   "seed_resize_from_w": -1,
   "batch_size": 1,
@@ -89,11 +90,19 @@ IMG2IMG = """
 }}"""
 
 
+def encode_image(img):
+    buffered = io.BytesIO()
+    img.save(buffered, format="PNG")
+    img_str = str(base64.b64encode(buffered.getvalue()))[2:-1]
+    return img_str
+
+
 class ApiMechanism(Mechanism):
     def __init__(self, config: DictConfig, root_config: RootConfig, func_util: FuncUtil):
         super().__init__(config, root_config, func_util)
         self.root_config = root_config
         self.config = config
+        self.current_config = dict(config)
         self.func_util = func_util
         func_util.add_callback("isTurboStep", self.is_turbo_step)
         self.host = self.config.get("host")
@@ -102,13 +111,18 @@ class ApiMechanism(Mechanism):
         self.scene_init = True
 
     def is_turbo_step(self, t):
-        if self.index % (self.config["turbo_steps"] + 1) == 0:
-            return {"is_turbo_step": 0, "index": self.index}
-        else:
-            return {"is_turbo_step": 1, "index": self.index}
+        return {"is_turbo_step": 0 if self.index % (self.current_config["turbo_steps"] + 1) == 0 else 1,
+                "index": self.index,
+                "interpolation_ongoing": 1 if self.anim_wrapper.interpolation_ongoing else 0}
 
     def generate(self, config: DictConfig, context, prompt: str, t):
-        return self.anim_wrapper.generate(config, context, prompt, t)
+        # Start with the root (default) config
+        config_copy = dict(self.config.copy())
+        # Overlay the scene-specific params if necessary
+        if config is not None:
+            config_copy.update(config)
+        self.current_config = config_copy
+        return self.anim_wrapper.generate(config_copy, context, prompt, t)
 
     def skip_frame(self):
         self.index = self.index + 1
@@ -118,11 +132,7 @@ class ApiMechanism(Mechanism):
         # TODO: template out the queries, run txt2img, decode the image
         # TODO: on subsequent steps, run img2img, encode the previous frame as base64 and use as input
         # TODO: warping code from other mechanism
-        # Start with the root (default) config
-        config_copy = dict(self.config.copy())
-        # Overlay the scene-specific params if necessary
-        if config is not None:
-            config_copy.update(config)
+        config_copy = config
         if "strength" not in context:
             config_copy.update(
                 {"strength": min(0.95, max(0, 1 - self.func_util.parametric_eval(config.get("strength_schedule"), t)))})
@@ -131,6 +141,7 @@ class ApiMechanism(Mechanism):
             config_copy.update({"strength": min(0.95, max(0, 1 - context['strength']))})
         # handle CFG scale schedule if necessary
         config_copy["scale"] = self.func_util.parametric_eval(config_copy.get("scale"), t)
+        self.current_config.update(config_copy)
         # TODO: key latents don't work here atm. img2img is too different from txt2img with scaled latents.
         #   idea: implement img2img module for automatic1111 for slerping between prompts, use that to generate all interpolation frames and write them directly.
         #   idea(easier?): generate the key latent image first, then run img2img between prev prompt with down-sloping denoising (denoise 0 in last step to finish transition)
@@ -142,11 +153,11 @@ class ApiMechanism(Mechanism):
         # del context["prev_image"]
 
         # A new scene just started, initialize if necessary
-        if self.scene_init:
-            # The new scene contains a specific override seed (i.e. an "init latent"),
-            # make sure we start exactly from the one the user specified
-            if "seed" in config:
-                self.index = 0
+        # if self.scene_init:
+        # The new scene contains a specific override seed (i.e. an "init latent"),
+        # make sure we start exactly from the one the user specified
+        # if "seed" in config:
+        # self.index = 0
         # TODO proper config overlaying
         config_copy.update(
             {
@@ -189,6 +200,13 @@ class ApiMechanism(Mechanism):
             # Turbo step, override steps params
             config_copy.update({"steps": config_copy.get("turbo_sampling_steps")})
 
+        if config_copy["strength"] <= 0 and "prev_image" in context:
+            logging.info("Skipping img2img due to strength <= 0")
+            self.index = self.index + 1
+            return Image.fromarray(context["prev_image"]), {
+                "prev_frame": context["prev_image"]
+            }
+
         logging.info(f"Config map for api mechanism {config_copy}")
         # TODO: if the scene has an init seed: discard the prev image and run txt2img if interpolation is 0,
         #  or track interpolation progress and run the txt2img with the start seed at the end of the interpolation
@@ -222,13 +240,17 @@ class ApiMechanism(Mechanism):
             raise RuntimeError("Unexpected non-200 exit code")
 
     def _img2img(self, config_param: dict, img: Image):
-        # Encode image
-        buffered = io.BytesIO()
-        img.save(buffered, format="PNG")
-
+        if config_param["strength"] <= 0:
+            logging.info("Skipping img2img due to strength <= 0")
+            return img
         # clip off the "byte" indicators in the result string
-        img_str = str(base64.b64encode(buffered.getvalue()))[2:-1]
+        # Encode image
+        img_str = encode_image(img)
+        # Create an empty (black image) mask
+        mask_str = encode_image(Image.fromarray(np.zeros([self.root_config.height, self.root_config.width, 3],
+                                                         dtype=np.uint8)))
         body = IMG2IMG.format(**config_param,
+                              maskbase64=mask_str,
                               pngbase64=img_str)
         res = requests.post(f"{self.host}/sdapi/v1/img2img",
                             data=body)
@@ -250,16 +272,18 @@ class ApiMechanism(Mechanism):
         self.scene_init = True
 
     def simulate_step(self, config, t) -> dict:
+        self.index = int(t * self.root_config.frames_per_second)
         # Start with the root (default) config
         config_copy = dict(self.config.copy())
         # Overlay the scene-specific params if necessary
         if config is not None:
             config_copy.update(config)
+        self.current_config = config_copy
         initial_dict = {
             "strength": self.func_util.parametric_eval(config_copy["strength_schedule"], t),
         }
         initial_dict.update(self.anim_wrapper.simulate_step(config, t))
-        self.index += 1
+        initial_dict.update(self.is_turbo_step(t))
         return initial_dict
 
     def destroy(self):

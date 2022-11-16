@@ -89,8 +89,9 @@ class MidiInput(InputVariableMechanism):
         # Get closest point in time prior to `t`
         key_list = list(self.notes_playing.keys())
         current = t + self.offset - np.array(key_list)
-        index = np.where(current >= 0, current, np.inf).argmin()
-        res[f"{self.prefix}notes_currently_on"].update(self.notes_playing[key_list[index]])
+        if len(key_list) > 0:
+            index = np.where(current >= 0, current, np.inf).argmin()
+            res[f"{self.prefix}notes_currently_on"].update(self.notes_playing[key_list[index]])
         return res
 
     def prompt_modulator_callback(self, t) -> typing.Dict[str, object]:
