@@ -1,0 +1,290 @@
+# Config for https://www.youtube.com/watch?v=eBpmX1HTgt4
+# The output of this run was upscaled using BSRGAN to x4 resolution (input scaled to 90%, output to 70%)
+# The output of that was interpolated using RIFE to x4 frame rate
+
+# Dimensions of the final video
+width: 1280
+height: 704
+# draft mode
+#width: 896
+#height: 512
+# 115 bpm / 60 = 1,91666666 bps
+# fps is a multiple of the song tempo in "bps" (bpm / 60)
+# 115 / 60 * 8 = 15.33333
+# -> 8 frames per beat. verify: (115 / 60) * 8 / (115 / 60) = 8
+# -> turbo steps: 7 so every 8th frame is a turbo step
+frames_per_second: 15.333333
+
+# When set, the runner will only simulate running all frames and output the evaluated functions for inspecting ahead of actually running the scenario or for debugging.
+# simulate_output: D:\latent\out\pleasure_model.csv
+
+output_path: D:\latent\out\pleasure_model
+
+# A directory for intermediary results, and misc. other models that are required
+persistence_dir: persistence/
+
+# Torch device to use
+torch_device: cuda
+scenes:
+  - # The prompt to generate images from
+    prompt: a beautiful scifi artwork of a huge ((dodecahedron)), (symmetrical, geometric shaped, futuristic mega structure) in a vast dystopian city [at night], bladerunner, unreal engine, [[by liam wong]], highly detailed
+    # How long this prompt should last at the frame rate specified above
+    # 1:06.780
+    duration: 1m6s780ms
+    # Interpolation between the previous and this scene. does not add to the duration of the scene.
+    interpolation: 0s
+    # Which mechanism to use to generate frames. Must be defined with parameters and type below
+    mechanism: api
+    # Optionally, some parameters of a mechanism may be modified at the scene-level. For example the number of steps to sample for in a diffusion model.
+    mechanism_parameters:
+      negative_prompt: sun, symmetrical, watermark
+      # no anim initially
+      strength_schedule: |
+        clamp(0, 1, 0.57
+        +((1-interpolation_ongoing)*is_turbo_step*0.7))
+      noise_schedule: clamp(0,1, 0.02+note_playing(notes_currently_on, "C5")*0.05-is_turbo_step*0.02)
+      turbo_steps: 1
+      animation_parameters:
+        translation_x: 0.2-camera_movements*snare_or_kick*5-camera_movements
+        translation_y: 0-camera_movements*snare_or_kick*5-camera_movements
+        translation_z: 0.5+max(0, bass_drum-0.32)*14+max(0, snare-0.5)*12+camera_movements*3
+        # depth model parameters
+        near_plane: 200
+        far_plane: 10000
+        fov: 40
+        sampling_mode: bicubic
+        padding_mode: border
+  - # The prompt to generate images from
+    prompt: a beautiful scifi painting of a market in a bustling vast dystopian city with colorful billboards, bladerunner, unreal engine, volumetric lighting, by liam wong
+    # How long this prompt should last at the frame rate specified above
+    # up to 1:40.175
+    duration: 33s605ms
+    # Interpolation between the previous and this scene. does not add to the duration of the scene.
+    interpolation: 3s
+    # Which mechanism to use to generate frames. Must be defined with parameters and type below
+    mechanism: api
+    # Optionally, some parameters of a mechanism may be modified at the scene-level. For example the number of steps to sample for in a diffusion model.
+    mechanism_parameters:
+      negative_prompt: watermark, isometric
+      # no anim initially
+      noise_schedule: clamp(0,1,0.03+note_playing(notes_currently_on, "C5")*0.05+clamp(0, 0.05, init_bass_notes*0.5)-is_turbo_step*0.03)
+      contrast_schedule: 0.96
+      init_frame: D:\latent\in\tmp9jdf8hks.png
+      strength_schedule: |
+        clamp(0, 1, 0.62
+        +((1-interpolation_ongoing)*is_turbo_step*0.7))
+      turbo_steps: 1
+      interpolation_function: (x**0.8)
+      scale: 10.5
+      animation_parameters:
+        translation_x: 0-camera_movements*snare_or_kick*5-camera_movements
+        translation_y: 0.4-camera_movements*snare_or_kick*5-camera_movements
+        translation_z: 1.1+max(0, bass_drum-0.32)*14+max(0, snare-0.5)*12+camera_movements*3
+        # depth model parameters
+        near_plane: 200
+        far_plane: 10000
+        fov: 40
+        sampling_mode: bicubic
+        padding_mode: border
+  - # The prompt to generate images from
+    prompt: a beautiful portrait scifi (render) of a beautiful robot human standing in a dystopian city at, bladerunner, (unreal engine), ((dark)), [by liam wong], volumetric lighting
+    # How long this prompt should last at the frame rate specified above
+    # up to 1:56.870
+    duration: 15s695ms
+    # Interpolation between the previous and this scene. does not add to the duration of the scene.
+    interpolation: 4s
+    # Which mechanism to use to generate frames. Must be defined with parameters and type below
+    mechanism: api
+    # Optionally, some parameters of a mechanism may be modified at the scene-level. For example the number of steps to sample for in a diffusion model.
+    mechanism_parameters:
+      negative_prompt: blurry, deformed, jpeg artifacts, light rays, sun, day, bright, asymmetrical, watermark, person
+      noise_schedule: clamp(0,1,0.02+note_playing(notes_currently_on, "C5")*0.05+clamp(0, 0.05, init_bass_notes*0.5)-is_turbo_step)
+      strength_schedule: |
+        clamp(0, 1, 0.57
+        +(is_turbo_step*0.4)
+        -clamp(0, 0.2, init_bass_notes*0.6))
+      turbo_steps: 1
+      # no anim initially
+      animation_parameters:
+        translation_x: 0
+        translation_y: 0
+        translation_z: 1
+        # depth model parameters
+        near_plane: 200
+        far_plane: 10000
+        fov: 40
+        sampling_mode: bicubic
+        padding_mode: border
+  - # The prompt to generate images from
+    prompt: a beautiful portrait scifi render of a beautiful robot woman being brutally disassembled in an operating room by various robot arm tools and blades, bladerunner, cyberpunk, by liam wong, unreal engine, trending on artstation
+    # How long this prompt should last at the frame rate specified above
+    # up to 2:47.000
+    duration: 50s130ms
+    # Interpolation between the previous and this scene. does not add to the duration of the scene.
+    interpolation: 2s
+    # Which mechanism to use to generate frames. Must be defined with parameters and type below
+    mechanism: api
+    # Optionally, some parameters of a mechanism may be modified at the scene-level. For example the number of steps to sample for in a diffusion model.
+    mechanism_parameters:
+      negative_prompt: deformed, watermark, dark
+      noise_schedule: 0.03+note_playing(notes_currently_on, "C5")*0.05+clamp(0, 0.05, init_bass_notes*0.5)
+      contrast_schedule: 0.942
+      strength_schedule: |
+        clamp(0.41, 0.9,
+        0.72
+        +(is_turbo_step*0.23)
+        -clamp(0, 0.16, init_bass_notes*0.8))
+        -clamp(0, 0.22, snare_or_kick*0.7)
+      init_frame: D:\latent\in\tmp0f7jpcll.png
+      # no anim initially
+      animation_parameters:
+        translation_x: 0.1+clamp(0, 0.12, snare_or_kick*0.5)
+        translation_y: 0.11-clamp(0, 0.25, snare_or_kick*0.9)
+        translation_z: 0.04-clamp(0, 0.09, snare_or_kick*0.2)
+        # depth model parameters
+        near_plane: 200
+        far_plane: 10000
+        fov: 40
+        sampling_mode: bicubic
+        padding_mode: border
+  - # The prompt to generate images from
+    prompt: a beautiful scifi (render) of robot parts getting dumped in a (trash) dump facility in a dystopian cyberpunk city, bladerunner, unreal engine, by liam wong
+    # How long this prompt should last at the frame rate specified above
+    # up to 3:37.000
+    duration: 50s
+    # Interpolation between the previous and this scene. does not add to the duration of the scene.
+    interpolation: 1s
+    # Which mechanism to use to generate frames. Must be defined with parameters and type below
+    mechanism: api
+    # Optionally, some parameters of a mechanism may be modified at the scene-level. For example the number of steps to sample for in a diffusion model.
+    mechanism_parameters:
+      negative_prompt: blurry, deformed, jpeg artifacts, watermark
+      noise_schedule: 0.02+note_playing(notes_currently_on, "C5")*0.05+clamp(0, 0.05, init_bass_notes*0.5)
+      init_frame: D:\latent\in\tmp29yghov8.png
+      strength_schedule: |
+        clamp(0.41, 0.9,
+        0.73
+        +(is_turbo_step*0.2)
+        -clamp(0, 0.16, init_bass_notes*0.9))
+        -clamp(0, 0.22, snare_or_kick*0.9)
+      # no anim initially
+      animation_parameters:
+        translation_x: 0.04
+        translation_y: 0.05
+        translation_z: 0
+        # depth model parameters
+        near_plane: 200
+        far_plane: 10000
+        fov: 40
+        sampling_mode: bicubic
+        padding_mode: border
+  - # The prompt to generate images from
+    prompt: a beautiful portrait scifi (render) of robot parts rusting away while being rained on in a trash facility in a dystopian cyberpunk city, rainy weather, bladerunner, (unreal engine), ((dark))
+    # How long this prompt should last at the frame rate specified above
+    # up to end (4:11)
+    duration: 34s
+    # Interpolation between the previous and this scene. does not add to the duration of the scene.
+    interpolation: 4s
+    # Which mechanism to use to generate frames. Must be defined with parameters and type below
+    mechanism: api
+    # Optionally, some parameters of a mechanism may be modified at the scene-level. For example the number of steps to sample for in a diffusion model.
+    mechanism_parameters:
+      negative_prompt: blurry, deformed, jpeg artifacts, watermark
+      noise_schedule: 0.02+note_playing(notes_currently_on, "C5")*0.05+clamp(0, 0.05, init_bass_notes*0.5)
+      strength_schedule: clamp(0, 1, 0.63+(is_turbo_step*0.13)-clamp(0, 0.28, init_bass_notes*0.8)) #(sin(6*t)**20)*0.2
+      # no anim initially
+      animation_parameters:
+        translation_x: 0.04
+        translation_y: 0.05
+        translation_z: 0
+        # depth model parameters
+        near_plane: 200
+        far_plane: 10000
+        fov: 40
+        sampling_mode: bicubic
+        padding_mode: border
+
+
+mechanisms:
+  - # Name of this parameter set within the config. Can be referenced in scenes
+    name: api
+    # Name of the mechanism to use
+    type: api
+    # Arbitrary parameters the text2video mechanism can take. These are always implementation specific
+    mechanism_parameters:
+      host: http://localhost:7860
+      seed: 338476951
+      # How many turbo steps (lower amount of sampling steps) to run in-between "full sized" frames
+      turbo_steps: 1
+      # How many sampling steps to run for a turbo frame
+      turbo_sampling_steps: 60
+      # Noise schedule (how much noise to add to in-between frames), can be a function or static
+      noise_schedule: 0.02+max(0, snare-0.5)*0.1
+
+      #debug: true
+
+      steps: 90
+      # Euler a, LMS, ...
+      sampler: Euler a
+      # Increasing CFG scale can help with prompt modulation transitions,
+      # but also increases the contrast/saturation of the image as a side-effect,
+      # which can lead to degrading colors over time
+      scale: 10
+      contrast_schedule: 1
+
+      strength_schedule: (min(1.0, 0.62-min(0.4, (snare_or_kick*0.7)+(int(index%5==0)*0.25))+(is_turbo_step*0.18)) #(sin(6*t)**20)*0.2
+      # Type of animation to apply between frames, if any
+      animation: 3D
+      # Parameters for the animation
+      animation_parameters:
+        translation_x: (max(0, bass_drum-0.32)*5)+sin(0.25*t)
+        translation_y: 0
+        translation_z: 1.4+max(0, bass_drum-0.32)*5
+        # depth model parameters
+        near_plane: 200
+        far_plane: 10000
+        fov: 43
+        sampling_mode: bicubic
+        padding_mode: border
+
+
+# Other multi-modal context
+additional_context:
+  input_mechanisms:
+    # Midi input mechanism: Reads a given midi file's note_on events
+    # NOTE: currently only a single track midi file is properly supported
+    - type: midi
+      mechanism_parameters:
+        # Generated using omnizart
+        file: D:\latent\in\1102_noisia_and_former_-_pleasure_model_.mid
+        track: Acoustic Grand Piano
+        # Offset the midi as it's read. Useful for animating a certain portion of a midi clip
+        offset: 0
+    - type: "spectral"
+      mechanism_parameters:
+        file: E:\Downloads\pleasure_model_.flac
+        offset: 0
+        filters:
+          - variable_name: bass_drum # The name of the variable we will use in the animation function
+            f_center: 55       # Central frequency the filter will respond to (54Hz)
+            f_width: 22        # The filter will pass signals from 34Hz to 74Hz
+            order: 7           # The filter slope will be 7*6=42dB per octave
+          - variable_name: snare # The name of the variable we will use in the animation function
+            f_center: 333       # Central frequency the filter will respond to (54Hz)
+            f_width: 60        # The filter will pass signals from 34Hz to 74Hz
+            order: 7           # The filter slope will be 7*6=42dB per octave
+          - variable_name: init_bass_notes # The name of the variable we will use in the animation function
+            f_center: 41       # Central frequency the filter will respond to (54Hz)
+            f_width: 48        # The filter will pass signals from 34Hz to 74Hz
+            order: 6           # The filter slope will be 7*6=42dB per octave
+  custom_functions:
+    - # The name under which the results of the function can be used in other functions
+      variable_name: camera_movements
+      function: |
+        0
+      # Store this many previous values of this function in the function's context. Can be used via the `prev` value in the function.
+      prev_values: 0
+    - variable_name: snare_or_kick
+      function: |
+        clamp(0,1, clamp(0,1,bass_drum-0.32) + clamp(0,1,snare-0.5))
+      prev_values: 0

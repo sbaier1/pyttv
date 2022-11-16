@@ -36,7 +36,7 @@ class FuncUtil:
             self.math_env.update(vals)
             self.update_math_env(t)
             self.update_funcs(t)
-            output = self.actual_eval(string, memo_key)
+            output = self.actual_eval(string, None)
             return output
         else:
             return string

@@ -38,7 +38,7 @@ class T2IAnimatedWrapper(Mechanism):
         # Some additional interpolation state
         self.interpolation_strength_history = []
 
-    def generate(self, config: DictConfig, context, prompt: str, t):
+    def generate(self, config: dict, context, prompt: str, t):
         super().generate(config, context, prompt, t)
         # Overlay config
         merged_config = dict(self.config.copy())
@@ -194,15 +194,15 @@ class T2IAnimatedWrapper(Mechanism):
             # modulate the denoising strength while the interpolation is ongoing to retain more of the interpolation frames at the start, then make sure we reach 0 strength at the end
             strength_evaluated_prev = strength_evaluated
             if not self.interpolation_transition_complete:
-                strength_evaluated = min(0.9, max(0.1, strength_evaluated + (1 - ((factor ** 1.4) * 1.65))))
+                strength_evaluated = min(0.9, max(0.1, strength_evaluated + (1 - ((factor ** 1.4) * 1.2))))
                 logging.info(
                     f"strength modulation: {strength_evaluated_prev} -> {strength_evaluated}. "
                     f"diff: {abs(strength_evaluated - strength_evaluated_prev)}, at evaluated percentage {factor}")
                 self.interpolation_strength_history.append(strength_evaluated)
-            if strength_evaluated < 0.25 \
+            if strength_evaluated < 0.35 \
                     or (len(self.interpolation_strength_history) > 1
                         and np.average(np.array(self.interpolation_strength_history)
-                                       * np.linspace(0, 1, len(self.interpolation_strength_history)) ** 0.5) < 0.4):
+                                       * np.linspace(0, 1, len(self.interpolation_strength_history)) ** 2) < 0.245):
                 # Stop modulating strength if the current step or
                 # the average of recent steps' strength is fairly low,
                 # just assume we finished the transition

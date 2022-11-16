@@ -76,7 +76,9 @@ class Runner:
                         f":{int(total_delta.total_seconds() % 60):02.0f}" \
                         f".{((total_delta.total_seconds() - int(total_delta.total_seconds())) * 1000):03.0f}"
             logging.info(
-                f"Scene will run up to {timestamp} for {cur_delta.total_seconds():02.02f}s with prompt {scene.prompt}")
+                f"Scene will run up to {timestamp} "
+                f"(frame {int(total_delta.total_seconds() * self.cfg.frames_per_second):05.0f}) "
+                f"for {cur_delta.total_seconds():02.02f}s with prompt {scene.prompt}")
         logging.info(f"Total duration of scenario: {total_delta.total_seconds():.3f}s")
         for i in range(self.scene_offset, len(self.cfg.scenes)):
             scene = self.cfg.scenes[i]
@@ -134,6 +136,7 @@ class Runner:
                 while k < self.cfg.frames_per_second * parse_time(scene.duration).total_seconds():
                     value_row = []
                     t = i / self.cfg.frames_per_second
+                    scene_progress = k / (self.cfg.frames_per_second * parse_time(scene.duration).total_seconds())
                     func_map = self.func_util.update_math_env(t)
                     func_map.update(mechanism.simulate_step(scene.mechanism_parameters, t))
                     func_map["index"] = i
