@@ -124,9 +124,9 @@ class ApiMechanism(Mechanism):
         self.current_config = config_copy
         return self.anim_wrapper.generate(config_copy, context, prompt, t)
 
-    def skip_frame(self):
+    def skip_frame(self, config):
         self.index = self.index + 1
-        self.anim_wrapper.skip_frame()
+        self.anim_wrapper.skip_frame(config)
 
     def actual_generate(self, config: DictConfig, context, prompt: str, t):
         # TODO: template out the queries, run txt2img, decode the image

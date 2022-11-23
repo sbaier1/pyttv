@@ -70,7 +70,7 @@ class Mechanism:
         Marks the end of a scene to the mechanism. It can reset its scene-specific state here
         """
 
-    def skip_frame(self):
+    def skip_frame(self, config):
         """
         Another method for stateful mechanisms: indicates that the state handling should be "fast-forwarded" without generating a frame.
         """

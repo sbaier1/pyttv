@@ -181,7 +181,7 @@ class Runner:
                                                        current_frame_path, scene_progress)
             else:
                 logging.info(f"Skipping frame {self.frame:05} because it already exists on disk")
-                mechanism.skip_frame()
+                mechanism.skip_frame(scene.mechanism_parameters)
                 has_fast_forwarded = True
             step_in_scene += 1
 
