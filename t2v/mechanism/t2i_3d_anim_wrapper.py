@@ -11,6 +11,7 @@ from t2v.config.root import RootConfig
 from t2v.input.video_input import VideoInput
 from t2v.mechanism.mechanism import Mechanism
 from t2v.mechanism.turbo_stablediff_functions import sample_to_cv2, maintain_colors, sample_from_cv2, add_noise
+from t2v.util import parse_time
 
 
 class T2IAnimatedWrapper(Mechanism):
@@ -49,7 +50,9 @@ class T2IAnimatedWrapper(Mechanism):
 
         if "video_init" in merged_config:
             self.initialize_video_init(merged_config)
-            self.video_input.next_frame()
+            if "video_init_skip_frames" in config:
+                self.video_input.skip_frame()
+            context["prev_image"] = self.video_input.next_frame()
 
         debug = False
         if "debug" in merged_config:
@@ -148,6 +151,10 @@ class T2IAnimatedWrapper(Mechanism):
     def initialize_video_init(self, config):
         if self.video_input is None:
             self.video_input = VideoInput(self.root_config, config["video_init"])
+            if "video_init_offset" in config:
+                offset = parse_time(config["video_init_offset"]).total_seconds()
+                skip_frame_count = self.video_input.fps * offset
+                self.video_input.skip_frame(n=int(skip_frame_count))
 
     def skip_frame(self, config):
         # Overlay config
