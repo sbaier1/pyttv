@@ -13,11 +13,12 @@ from t2v.input.input_mechanism import InputVariableMechanism
 SAMPLERATE = 44100
 
 
-def read_audio_signed16(input_audio):
+def read_audio_signed16(input_audio, atempo=1):
     logging.info(f"Parsing audio file {input_audio}")
     pipe = subprocess.Popen(['ffmpeg', '-i', input_audio,
                              '-f', 's16le',
                              '-acodec', 'pcm_s16le',
+                             '-filter:a', f'atempo={atempo}',
                              '-ar', str(SAMPLERATE),
                              '-ac', '1',
                              '-'], stdout=subprocess.PIPE, bufsize=10 ** 8)
@@ -46,16 +47,23 @@ class SpectralAudioParser(InputVariableMechanism):
         super().__init__(config, root_config)
         frames_per_second = root_config.frames_per_second
         input_audio = config["file"]
-        offset = config["offset"]
+        if "offset" in config:
+            offset = config["offset"]
+        else:
+            offset = 0
         filters_list = config["filters"]
         filters = []
+        if "atempo" in config:
+            atempo = config["atempo"]
+        else:
+            atempo = 1
         for filter in filters_list:
             filters.append(SpectralAudioFilter(**filter))
 
         if len(filters) < 1:
             raise RuntimeError("When using input_audio, at least 1 filter must be specified")
 
-        self.audio_samples = read_audio_signed16(input_audio)
+        self.audio_samples = read_audio_signed16(input_audio, atempo=atempo)
         self.duration = len(self.audio_samples) / SAMPLERATE
         logging.info(
             f"initialized audio file {input_audio}, samples read: {len(self.audio_samples)},"

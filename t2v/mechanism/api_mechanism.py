@@ -55,7 +55,7 @@ IMG2IMG = """
   ],
   "resize_mode": 0,
   "denoising_strength": {strength},
-  "mask": "data:image/png;base64,{maskbase64}",
+  "mask": null,
   "mask_blur": 0,
   "inpainting_fill": 1,
   "inpaint_full_res": true,
@@ -250,7 +250,6 @@ class ApiMechanism(Mechanism):
         mask_str = encode_image(Image.fromarray(np.zeros([self.root_config.height, self.root_config.width, 3],
                                                          dtype=np.uint8)))
         body = IMG2IMG.format(**config_param,
-                              maskbase64=mask_str,
                               pngbase64=img_str)
         res = requests.post(f"{self.host}/sdapi/v1/img2img",
                             data=body)

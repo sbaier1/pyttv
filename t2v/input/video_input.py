@@ -37,7 +37,7 @@ class VideoInput:
 
     def skip_frame(self, n=1):
         logging.info(f"Skipping {n} frames of video file {self.video_path}")
-        for i in range(1, n):
+        for i in range(0, n):
             # scroll the stdin buffer
             self.pipe.stdout.read(self.w * self.h * 3)
             # throw away the data in the pipe's buffer.

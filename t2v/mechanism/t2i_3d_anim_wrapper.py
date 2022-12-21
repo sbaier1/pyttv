@@ -49,6 +49,8 @@ class T2IAnimatedWrapper(Mechanism):
             merged_config.update(config)
 
         if "video_init" in merged_config:
+            # Disable color matching, don't need it with video_init because colors can't degrade here.
+            self.color_match_sample = None
             self.initialize_video_init(merged_config)
             if "video_init_skip_frames" in config:
                 self.video_input.skip_frame()
@@ -167,6 +169,8 @@ class T2IAnimatedWrapper(Mechanism):
         if "video_init" in merged_config:
             self.initialize_video_init(merged_config)
             self.video_input.skip_frame()
+            if "video_init_skip_frames" in merged_config:
+                self.video_input.skip_frame(merged_config["video_init_skip_frames"])
         if self.interpolation_ongoing \
                 and len(self.interpolation_frames) > 0 \
                 and self.interpolation_index < len(self.interpolation_frames):
