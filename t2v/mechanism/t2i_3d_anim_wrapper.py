@@ -8,8 +8,10 @@ from omegaconf import DictConfig
 
 from t2v.animation.func_tools import FuncUtil
 from t2v.config.root import RootConfig
+from t2v.input.video_input import VideoInput
 from t2v.mechanism.mechanism import Mechanism
 from t2v.mechanism.turbo_stablediff_functions import sample_to_cv2, maintain_colors, sample_from_cv2, add_noise
+from t2v.util import parse_time
 
 
 class T2IAnimatedWrapper(Mechanism):
@@ -37,6 +39,7 @@ class T2IAnimatedWrapper(Mechanism):
         self.index = 0
         # Some additional interpolation state
         self.interpolation_strength_history = []
+        self.video_input = None
 
     def generate(self, config: dict, context, prompt: str, t):
         super().generate(config, context, prompt, t)
@@ -44,6 +47,14 @@ class T2IAnimatedWrapper(Mechanism):
         merged_config = dict(self.config.copy())
         if config is not None:
             merged_config.update(config)
+
+        if "video_init" in merged_config:
+            # Disable color matching, don't need it with video_init because colors can't degrade here.
+            self.color_match_sample = None
+            self.initialize_video_init(merged_config)
+            if "video_init_skip_frames" in config:
+                self.video_input.skip_frame()
+            context["prev_image"] = self.video_input.next_frame()
 
         debug = False
         if "debug" in merged_config:
@@ -139,8 +150,27 @@ class T2IAnimatedWrapper(Mechanism):
             "wrapped_context": context
         }
 
-    def skip_frame(self):
+    def initialize_video_init(self, config):
+        if self.video_input is None:
+            self.video_input = VideoInput(self.root_config, config["video_init"])
+            if "video_init_offset" in config:
+                offset = parse_time(config["video_init_offset"]).total_seconds()
+                skip_frame_count = self.video_input.fps * offset
+                self.video_input.skip_frame(n=int(skip_frame_count))
+
+    def skip_frame(self, config):
+        # Overlay config
+        merged_config = dict(self.config.copy())
+        if config is not None:
+            merged_config.update(config)
+
         self.index = self.index + 1
+        # Scroll the input video as well
+        if "video_init" in merged_config:
+            self.initialize_video_init(merged_config)
+            self.video_input.skip_frame()
+            if "video_init_skip_frames" in merged_config:
+                self.video_input.skip_frame(merged_config["video_init_skip_frames"])
         if self.interpolation_ongoing \
                 and len(self.interpolation_frames) > 0 \
                 and self.interpolation_index < len(self.interpolation_frames):

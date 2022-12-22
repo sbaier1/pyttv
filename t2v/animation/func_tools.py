@@ -56,7 +56,7 @@ class FuncUtil:
         return output
 
     def update_funcs(self, t):
-        if self.cfg.additional_context.custom_functions is not None:
+        if "custom_functions" in self.cfg.additional_context:
             for func in self.cfg.additional_context.custom_functions:
                 value = self.actual_eval(func.function)
                 self.math_env[func.variable_name] = value

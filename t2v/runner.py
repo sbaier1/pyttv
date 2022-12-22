@@ -2,7 +2,6 @@ import csv
 import logging
 import math
 import os
-import re
 from datetime import timedelta
 from types import ModuleType
 
@@ -18,10 +17,9 @@ from t2v.input.midi_input import MidiInput
 from t2v.input.spectral_input import SpectralAudioParser
 from t2v.mechanism.api_mechanism import ApiMechanism
 from t2v.mechanism.noop_mechanism import NoopMechanism
+from t2v.util import parse_time
 
 INTERPOLATE_DIRECTORY = "_interpolate"
-
-time_regex = re.compile(r'((?P<hours>\d+?)hr)?((?P<minutes>\d+?)m)?((?P<seconds>\d+?)s)?((?P<milliseconds>\d+)?ms)?')
 
 mechanism_types = {
     NoopMechanism.name(): NoopMechanism,
@@ -181,7 +179,7 @@ class Runner:
                                                        current_frame_path, scene_progress)
             else:
                 logging.info(f"Skipping frame {self.frame:05} because it already exists on disk")
-                mechanism.skip_frame()
+                mechanism.skip_frame(scene.mechanism_parameters)
                 has_fast_forwarded = True
             step_in_scene += 1
 
@@ -260,21 +258,6 @@ class Runner:
                                                 instance.func_var_callback)
                     types[mechanism_type_name] += 1
 
-
-def parse_time(time_str):
-    parts = time_regex.match(time_str)
-    if not parts:
-        return
-    parts = parts.groupdict()
-    time_params = {}
-    for name, param in parts.items():
-        if param:
-            time_params[name] = int(param)
-    result = timedelta(**time_params)
-    if result.total_seconds() == 0:
-        logging.warning(f"Time string {time_str} evaluated to 0s. 0 durations typically don't need to be specified."
-                        f" (Could be a parser error)")
-    return result
 
 
 # noinspection PyUnusedLocal
