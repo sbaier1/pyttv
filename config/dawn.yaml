@@ -1,0 +1,138 @@
+# Dimensions of the final video
+width: 1152
+height: 640
+# Frame rate of the final video
+frames_per_second: 18
+
+# When set, the runner will only simulate running all frames and output the evaluated functions for inspecting ahead of actually running the scenario or for debugging.
+#simulate_output: G:\shit\latent\out\dawn.csv
+
+output_path: D:\latent\out\dawn
+
+# A directory for intermediary results, and misc. other models that are required
+persistence_dir: persistence/
+
+# Torch device to use
+torch_device: cuda
+scenes:
+  - # The prompt to generate images from
+    prompt: |
+      a beautiful 
+      {% if note_playing(notes_currently_on, "C#2") %}
+      (abstract polygon geometric:1.4) 
+      {% endif %}
+      painting 
+      of a valley with a river with at 
+      {% if note_playing(notes_currently_on, "C#2") %}
+      (early morning with sunrise hitting mountain peaks, bright:1.4),
+      {% else %}
+      ((night)), 
+      {% endif %}
+      ultra detailed, detailed, 
+      {% if note_playing(notes_currently_on, "F1") %}
+      night sky, stars visible,  
+      {% endif %}
+      {% if note_playing(notes_currently_on, "C#2") %}
+      [[by jordan grimmer]], 
+      {% endif %}
+      fantasy landscape,
+      geometric shapes
+    # How long this prompt should last at the frame rate specified above
+    duration: 20s
+    # Interpolation between the previous and this scene. does not add to the duration of the scene.
+    interpolation: 0s
+    # Which mechanism to use to generate frames. Must be defined with parameters and type below
+    mechanism: api
+    # Optionally, some parameters of a mechanism may be modified at the scene-level. For example the number of steps to sample for in a diffusion model.
+    mechanism_parameters:
+      negative_prompt: sun, bright, specks, dots, noise, blurry, jpeg artifacts
+      # no anim initially
+      animation_parameters:
+        translation_x: -0.5-max(0, snare-0.5)*4-camera_movements*snare_or_kick*5-camera_movements
+        translation_y: -0.3-camera_movements*snare_or_kick*5-camera_movements
+        translation_z: 1.4+max(0, bass_drum-0.32)*14+max(0, snare-0.5)*12+camera_movements*3
+        # depth model parameters
+        near_plane: 200
+        far_plane: 10000
+        fov: 40
+        sampling_mode: bicubic
+        padding_mode: border
+
+
+
+mechanisms:
+  - # Name of this parameter set within the config. Can be referenced in scenes
+    name: api
+    # Name of the mechanism to use
+    type: api
+    # Arbitrary parameters the text2video mechanism can take. These are always implementation specific
+    mechanism_parameters:
+      host: http://localhost:7860
+      seed: 1295529213
+      # How many turbo steps (lower amount of sampling steps) to run in-between "full sized" frames
+      turbo_steps: 2
+      # How many sampling steps to run for a turbo frame
+      turbo_sampling_steps: 40
+      # Noise schedule (how much noise to add to in-between frames), can be a function or static
+      noise_schedule: 0.02+max(0, snare-0.5)*0.1
+
+      steps: 70
+      # Euler a, LMS, ...
+      sampler: LMS
+      # Increasing CFG scale can help with prompt modulation transitions,
+      # but also increases the contrast/saturation of the image as a side-effect,
+      # which can lead to degrading colors over time
+      scale: 10.5
+      contrast_schedule: 0.982
+
+      strength_schedule: (min(1.0, 0.62-min(0.4, (snare_or_kick*0.7)+(int(index%5==0)*0.25))+(is_turbo_step*0.18))) #(sin(6*t)**20)*0.2
+      # Type of animation to apply between frames, if any
+      animation: 3D
+      # Parameters for the animation
+      animation_parameters:
+        translation_x: (max(0, bass_drum-0.32)*5)+sin(0.25*t)
+        translation_y: 0
+        translation_z: 1.4+max(0, bass_drum-0.32)*5
+        # depth model parameters
+        near_plane: 200
+        far_plane: 10000
+        fov: 43
+        sampling_mode: bicubic
+        padding_mode: border
+
+
+# Other multi-modal context
+additional_context:
+  input_mechanisms:
+    # Midi input mechanism: Reads a given midi file's note_on events
+    # NOTE: currently only a single track midi file is properly supported
+    - type: midi
+      mechanism_parameters:
+        file: G:\shit\latent\in\dawn.mid
+        # Offset the midi as it's read. Useful for animating a certain portion of a midi clip
+        offset: 67
+    - type: "spectral"
+      mechanism_parameters:
+        file: E:\Downloads\01 Dawn.flac
+        offset: 67 # Start analyzing the file at 50s, for generating animations at an offset
+        filters:
+          - variable_name: bass_drum # The name of the variable we will use in the animation function
+            f_center: 97       # Central frequency the filter will respond to (54Hz)
+            f_width: 58        # The filter will pass signals from 34Hz to 74Hz
+            order: 7           # The filter slope will be 7*6=42dB per octave
+          - variable_name: snare # The name of the variable we will use in the animation function
+            f_center: 280       # Central frequency the filter will respond to (54Hz)
+            f_width: 100        # The filter will pass signals from 34Hz to 74Hz
+            order: 7           # The filter slope will be 7*6=42dB per octave
+  custom_functions:
+    - # The name under which the results of the function can be used in other functions
+      variable_name: camera_movements
+      function: |
+        bell_curve(2.5, 8.5, t, 4) +
+        0
+      # Store this many previous values of this function in the function's context. Can be used via the `prev` value in the function.
+      prev_values: 0
+    - variable_name: snare_or_kick
+      function: |
+        clamp(0,1, clamp(0,1,bass_drum-0.32) + clamp(0,1,snare-0.5))
+      prev_values: 0
