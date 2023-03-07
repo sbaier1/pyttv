@@ -78,9 +78,12 @@ class T2IAnimatedWrapper(Mechanism):
                             cv2.cvtColor(current_frame.astype(np.uint8), cv2.COLOR_RGB2BGR))
             # Color match
             if self.color_match_sample is not None:
-                current_frame = maintain_colors(current_frame, self.color_match_sample, 'Match Frame 0 LAB')
+                current_frame = maintain_colors(current_frame, self.color_match_sample, 'Match Frame 0 LAB',
+                                                self.func_util.parametric_eval(merged_config.get("color_match_weight")
+                                                                               if "color_match_weight" in merged_config
+                                                                               else 0.6, t))
             if debug:
-                cv2.imwrite(os.path.join(self.root_config.output_path, f"{self.index:05}_1_color_matched.png"),
+               cv2.imwrite(os.path.join(self.root_config.output_path, f"{self.index:05}_1_color_matched.png"),
                             cv2.cvtColor(current_frame.astype(np.uint8), cv2.COLOR_RGB2BGR))
             # TODO: parameters for contrast schedule, noise schedule
             # apply scaling

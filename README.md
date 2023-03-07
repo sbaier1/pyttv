@@ -44,6 +44,12 @@ cat *.png | ffmpeg -framerate 18 -f image2pipe -i - -c:v libx264 -pix_fmt yuv420
 ```
 where `18` is to be replaced by your fps of course and `out.mp4` is the output filename.
 
+or to encode in a lossless format:
+
+```shell
+ffmpeg -framerate 18 -i directory\%05d.png -c:v copy output.mkv
+```
+
 #### Appending audio
 
 ```shell
