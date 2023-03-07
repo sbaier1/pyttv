@@ -5,6 +5,8 @@ height: 720
 frames_per_second: 15.4999
 #simulate_output: H:\latent\recovery.csv
 
+# NOTE: this is not 100% reproducible since i swapped models during generation. The final model i switched to about half way was Illuminati Diffusion v1.1.
+
 output_path: H:\latent\out\recovery
 
 # A directory for intermediary results, and misc. other models that are required
