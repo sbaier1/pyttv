@@ -23,7 +23,7 @@ def add_noise(sample: torch.Tensor, noise_amt: float) -> torch.Tensor:
     return sample - (noise_amt / 2) + torch.randn(sample.shape, device=sample.device) * noise_amt
 
 
-def maintain_colors(prev_img, color_match_sample, mode):
+def maintain_colors(prev_img, color_match_sample, mode, color_match_weight):
     if mode == 'Match Frame 0 RGB':
         return match_histograms(prev_img, color_match_sample, multichannel=True)
     elif mode == 'Match Frame 0 HSV':
@@ -36,7 +36,7 @@ def maintain_colors(prev_img, color_match_sample, mode):
         color_match_lab = cv2.cvtColor(color_match_sample, cv2.COLOR_RGB2LAB)
         matched_lab = match_histograms(prev_img_lab, color_match_lab, multichannel=True)
         # blend with previous unmatched version so there can be gradual changes. it's too static atm
-        return cv2_blend(cv2.cvtColor(matched_lab, cv2.COLOR_LAB2RGB), prev_img, 0.6)
+        return cv2_blend(cv2.cvtColor(matched_lab, cv2.COLOR_LAB2RGB), prev_img, color_match_weight)
 
 
 # Effectively the same as PILs blend function but for cv2 style matrices

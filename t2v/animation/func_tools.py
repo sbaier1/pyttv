@@ -17,6 +17,7 @@ class FuncUtil:
             "round": round,
             "clamp": clamp,
             "bell_curve": bell_curve,
+            "trigger": trigger,
             "np": np,
             "__builtins__": None,
         }
@@ -27,6 +28,8 @@ class FuncUtil:
         self.eval_memo = {}
         self.callbacks = {}
         self.prev_values = {}
+        # For tracking necessary updates to state
+        self.last_update_t = -1
 
     def parametric_eval(self, string, t, **vals):
         if isinstance(string, str):
@@ -37,6 +40,7 @@ class FuncUtil:
             self.update_math_env(t)
             self.update_funcs(t)
             output = self.actual_eval(string, None)
+            self.last_update_t = t
             return output
         else:
             return string
@@ -56,6 +60,9 @@ class FuncUtil:
         return output
 
     def update_funcs(self, t):
+        if self.last_update_t == t:
+            # Skip update, already up to date
+            return
         if "custom_functions" in self.cfg.additional_context:
             for func in self.cfg.additional_context.custom_functions:
                 value = self.actual_eval(func.function)
@@ -67,8 +74,12 @@ class FuncUtil:
                     prev_values.append(value)
                     if len(prev_values) > func.prev_values:
                         del (prev_values[0])
+        self.math_env["func_prev_values"] = self.prev_values
 
     def update_math_env(self, t):
+        if self.last_update_t == t:
+            # Skip update, already up to date
+            return self.math_env
         self.math_env["t"] = t
         for callback in self.callbacks.keys():
             callback_result = self.callbacks[callback](t)
@@ -97,3 +108,31 @@ def bell_curve(duration, offset, t, order=2):
     https://www.wolframalpha.com/input?i=max%280%2C+%28-%282x-1%29%5E2%29%2B1%29
     """
     return clamp(0, 1, (-(2 * (1 / duration) * (t - offset) - 1) ** order) + 1)
+
+
+def trigger(prev_values, threshold, max_trigger_num=1):
+    """
+    A helper for triggering a change based on a numeric threshold with temporal tracking to
+    avoid triggering a change multiple times due to a continuous signal.
+
+    This is useful for example for triggering just once on a single drum hit instead of for the entire duration of the
+    drum hit, where the signal is high.
+    Must be used in the context of a custom_function to be able to maintain temporal context.
+
+    :param prev_values: The array of previous values of the variable. Provided by custom_function context
+    :param threshold: The numeric threshold the variable must pass to trigger the function
+    :param max_trigger_num: How many times the trigger can occur in the current look back window (prev_values length)
+    :return: 1 if triggered, 0 otherwise
+    """
+    if prev_values is not None and len(prev_values) > 0:
+        num_trigger = 0
+        first_trigger_idx = -1
+        for i, value in enumerate(prev_values):
+            if value >= threshold:
+                num_trigger += 1
+                if first_trigger_idx == -1:
+                    first_trigger_idx = i
+        if first_trigger_idx == 0 and 0 < num_trigger <= max_trigger_num:
+            # Only trigger if the first location (current value) in the array is the trigger cause
+            return 1
+    return 0

@@ -26,7 +26,7 @@ scenes:
     mechanism: api
     # Optionally, some parameters of a mechanism may be modified at the scene-level. For example the number of steps to sample for in a diffusion model.
     mechanism_parameters:
-      strength_schedule: clamp(0,1, 0.59-(beat*0.23)+(is_turbo_step*0.14))
+      strength_schedule: clamp(0,1, 0.62-(beat*0.23)+(is_turbo_step*0.14))
 
 
 mechanisms:
@@ -38,15 +38,17 @@ mechanisms:
     mechanism_parameters:
       host: http://localhost:7860
       seed: 2812101937
+      # Statically stay on the original seed
+      subseed_strength: 0
       # How many turbo steps (lower amount of sampling steps) to run in-between "full sized" frames
       turbo_steps: 0
       # How many sampling steps to run for a turbo frame
       turbo_sampling_steps: 25
       # Noise schedule (how much noise to add to in-between frames), can be a function or static
-      noise_schedule: 0.02+beat*0.05
+      noise_schedule: 0.00
       steps: 25
       # Euler a, LMS, ...
-      sampler: DDIM
+      sampler: LMS
       scale: 9.5
       # This is denoising strength here, lower = better flow
       strength_schedule: (min(1.0, 0.76-(beat*0.5)+(is_turbo_step*0.12)))

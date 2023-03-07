@@ -99,7 +99,7 @@ class Runner:
                             context = self.generate_and_save_frame(context, mechanism,
                                                                    scene, frame_path, 1.0)
                         else:
-                            mechanism.skip_frame()
+                            mechanism.skip_frame(self.cfg)
                         interpolation_frames.append(frame_path)
                     prev_prompt = scene.prompt
                     mechanism.set_interpolation_state(interpolation_frames, prev_prompt)

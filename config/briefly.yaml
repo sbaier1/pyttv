@@ -1,0 +1,233 @@
+# Dimensions of the final video
+width: 1152
+height: 768
+# Frame rate of the final video
+frames_per_second: 15
+
+# Config for https://www.youtube.com/watch?v=aoQlm_h5jEM
+
+output_path: H:\latent\out\briefly
+
+# A directory for intermediary results, and misc. other models that are required
+persistence_dir: persistence/
+
+# MISC notes:
+# - Load SD2 depth2img model in webUI first (all operations here are img2img)
+
+# Torch device to use
+torch_device: cuda
+scenes:
+  - # The prompt to generate images from
+    prompt: a beautiful deep space photography image of a black hole, highly detailed, dark
+    # How long this prompt should last at the frame rate specified above
+    duration: 120s
+    # Interpolation between the previous and this scene. does not add to the duration of the scene.
+    interpolation: 0s
+    # Which mechanism to use to generate frames. Must be defined with parameters and type below
+    mechanism: api
+    mechanism_parameters: {}
+    # Optionally, some parameters of a mechanism may be modified at the scene-level. For example the number of steps to sample for in a diffusion model.
+  - # The prompt to generate images from
+    prompt: a beautiful painting of the conservation of energy
+    # How long this prompt should last at the frame rate specified above
+    duration: 120s
+    # Interpolation between the previous and this scene. does not add to the duration of the scene.
+    interpolation: 20s
+    # Which mechanism to use to generate frames. Must be defined with parameters and type below
+    mechanism: api
+    mechanism_parameters: {}
+    # Optionally, some parameters of a mechanism may be modified at the scene-level. For example the number of steps to sample for in a diffusion model.
+  - # The prompt to generate images from
+    prompt: a beautiful painting of the conservation of energy, extremely intricate
+    # How long this prompt should last at the frame rate specified above
+    duration: 120s
+    # Interpolation between the previous and this scene. does not add to the duration of the scene.
+    interpolation: 20s
+    # Which mechanism to use to generate frames. Must be defined with parameters and type below
+    mechanism: api
+    mechanism_parameters: {}
+    # Optionally, some parameters of a mechanism may be modified at the scene-level. For example the number of steps to sample for in a diffusion model.
+  - # The prompt to generate images from
+    prompt: a beautiful abstract painting of the conservation of energy
+    # How long this prompt should last at the frame rate specified above
+    duration: 120s
+    # Interpolation between the previous and this scene. does not add to the duration of the scene.
+    interpolation: 20s
+    # Which mechanism to use to generate frames. Must be defined with parameters and type below
+    mechanism: api
+    mechanism_parameters: {}
+    # Optionally, some parameters of a mechanism may be modified at the scene-level. For example the number of steps to sample for in a diffusion model.
+  - # The prompt to generate images from
+    prompt: a beautiful abstract artwork of the conservation of energy, highly detailed
+    # How long this prompt should last at the frame rate specified above
+    duration: 120s
+    # Interpolation between the previous and this scene. does not add to the duration of the scene.
+    interpolation: 10s
+    # Which mechanism to use to generate frames. Must be defined with parameters and type below
+    mechanism: api
+    mechanism_parameters: {}
+    # Optionally, some parameters of a mechanism may be modified at the scene-level. For example the number of steps to sample for in a diffusion model.
+  - # The prompt to generate images from
+    prompt: a beautiful painting of the conservation of energy
+    # How long this prompt should last at the frame rate specified above
+    duration: 120s
+    # Interpolation between the previous and this scene. does not add to the duration of the scene.
+    interpolation: 10s
+    # Which mechanism to use to generate frames. Must be defined with parameters and type below
+    mechanism: api
+    mechanism_parameters: {}
+    # Optionally, some parameters of a mechanism may be modified at the scene-level. For example the number of steps to sample for in a diffusion model.
+  - # The prompt to generate images from
+    prompt: a beautiful painting of the conservation of energy, fibonacci spiral
+    # How long this prompt should last at the frame rate specified above
+    duration: 120s
+    # Interpolation between the previous and this scene. does not add to the duration of the scene.
+    interpolation: 10s
+    # Which mechanism to use to generate frames. Must be defined with parameters and type below
+    mechanism: api
+    mechanism_parameters: {}
+    # Optionally, some parameters of a mechanism may be modified at the scene-level. For example the number of steps to sample for in a diffusion model.
+  - # The prompt to generate images from
+    prompt: a beautiful painting of the conservation of energy, golden ratio
+    # How long this prompt should last at the frame rate specified above
+    duration: 120s
+    # Interpolation between the previous and this scene. does not add to the duration of the scene.
+    interpolation: 10s
+    # Which mechanism to use to generate frames. Must be defined with parameters and type below
+    mechanism: api
+    mechanism_parameters: {}
+    # Optionally, some parameters of a mechanism may be modified at the scene-level. For example the number of steps to sample for in a diffusion model.
+  - # The prompt to generate images from
+    prompt: a beautiful abstract painting of the conservation of energy
+    # How long this prompt should last at the frame rate specified above
+    duration: 120s
+    # Interpolation between the previous and this scene. does not add to the duration of the scene.
+    interpolation: 10s
+    # Which mechanism to use to generate frames. Must be defined with parameters and type below
+    mechanism: api
+    mechanism_parameters: {}
+    # Optionally, some parameters of a mechanism may be modified at the scene-level. For example the number of steps to sample for in a diffusion model.
+  - # The prompt to generate images from
+    prompt: a beautiful abstract artwork of the conservation of energy, highly detailed
+    # How long this prompt should last at the frame rate specified above
+    duration: 120s
+    # Interpolation between the previous and this scene. does not add to the duration of the scene.
+    interpolation: 10s
+    # Which mechanism to use to generate frames. Must be defined with parameters and type below
+    mechanism: api
+    mechanism_parameters: {}
+    # Optionally, some parameters of a mechanism may be modified at the scene-level. For example the number of steps to sample for in a diffusion model.
+  - # The prompt to generate images from
+    prompt: a beautiful geometric painting of a star system
+    # How long this prompt should last at the frame rate specified above
+    duration: 120s
+    # Interpolation between the previous and this scene. does not add to the duration of the scene.
+    interpolation: 10s
+    # Which mechanism to use to generate frames. Must be defined with parameters and type below
+    mechanism: api
+    mechanism_parameters: {}
+    # Optionally, some parameters of a mechanism may be modified at the scene-level. For example the number of steps to sample for in a diffusion model.
+  - # The prompt to generate images from
+    prompt: a beautiful painting of the conservation of energy, fibonacci spiral
+    # How long this prompt should last at the frame rate specified above
+    duration: 120s
+    # Interpolation between the previous and this scene. does not add to the duration of the scene.
+    interpolation: 10s
+    # Which mechanism to use to generate frames. Must be defined with parameters and type below
+    mechanism: api
+    mechanism_parameters: {}
+    # Optionally, some parameters of a mechanism may be modified at the scene-level. For example the number of steps to sample for in a diffusion model.
+  - # The prompt to generate images from
+    prompt: a beautiful painting of protein folding
+    # How long this prompt should last at the frame rate specified above
+    duration: 120s
+    # Interpolation between the previous and this scene. does not add to the duration of the scene.
+    interpolation: 10s
+    # Which mechanism to use to generate frames. Must be defined with parameters and type below
+    mechanism: api
+    mechanism_parameters: {}
+    # Optionally, some parameters of a mechanism may be modified at the scene-level. For example the number of steps to sample for in a diffusion model.
+  - # The prompt to generate images from
+    prompt: a beautiful painting of the conservation of energy
+    # How long this prompt should last at the frame rate specified above
+    duration: 60s
+    # Interpolation between the previous and this scene. does not add to the duration of the scene.
+    interpolation: 10s
+    # Which mechanism to use to generate frames. Must be defined with parameters and type below
+    mechanism: api
+    mechanism_parameters: {}
+    # Optionally, some parameters of a mechanism may be modified at the scene-level. For example the number of steps to sample for in a diffusion model.
+
+
+mechanisms:
+  - # Name of this parameter set within the config. Can be referenced in scenes
+    name: api
+    # Name of the mechanism to use
+    type: api
+    # Arbitrary parameters the text2video mechanism can take. These are always implementation specific
+    mechanism_parameters:
+      host: http://localhost:7860
+      seed: 3630593569
+      # Statically stay on the original seed
+      subseed_strength: 0
+      # How many turbo steps (lower amount of sampling steps) to run in-between "full sized" frames
+      turbo_steps: 5
+      # How many sampling steps to run for a turbo frame
+      turbo_sampling_steps: 20
+      # Noise schedule (how much noise to add to in-between frames), can be a function or static
+      noise_schedule: 0.04
+      steps: 30
+      sampler: DDIM
+      # Euler a, LMS,
+      scale: 8
+      # This is denoising strength here, lower = better flow
+      strength_schedule: clamp(0.1,0.9, 0.6-(beat*0.62)+(is_turbo_step*0.4))
+      # Type of animation to apply between frames, if any
+      animation: 3D
+      # don't color match, not needed on SD2.1 (0 would be full color matching)
+      color_match_weight: 1
+      # Parameters for the animation
+      animation_parameters:
+        translation_x: 0
+        translation_y: 1
+        translation_z: 2+beat*4
+        # depth model parameters
+        near_plane: 200
+        far_plane: 10000
+        fov: 40
+        sampling_mode: bicubic
+        padding_mode: border
+
+
+# Other multi-modal context
+additional_context:
+  input_mechanisms:
+# Spectral input mechanism: Analyzes an audio file using bandpass filters,
+# passes a variable into the functions in the `0..1` range that indicates the amplitude of the signal within the filter.
+# Normalized to cover the full range.
+    - type: "spectral"
+      mechanism_parameters:
+        file: H:\latent\in\Nils Frahm - Briefly (Official Audio)-uhiwpPRxVMw.mp3
+        offset: 0
+        atempo: 1
+        filters:
+          # These are very rough estimates without analysing and could probably be improved.
+          - variable_name: kick # The name of the variable we will use in the animation function
+            f_center: 50       # Central frequency the filter will respond to (54Hz)
+            f_width: 60        # The filter will pass signals from 34Hz to 74Hz
+            order: 6           # The filter slope will be 7*6=42dB per octave
+          - variable_name: snare # The name of the variable we will use in the animation function
+            f_center: 200       # Central frequency the filter will respond to (54Hz)
+            f_width: 80        # The filter will pass signals from 34Hz to 74Hz
+            order: 8           # The filter slope will be 7*6=42dB per octave
+          - variable_name: mids # The name of the variable we will use in the animation function
+            f_center: 300       # Central frequency the filter will respond to (54Hz)
+            f_width: 40        # The filter will pass signals from 34Hz to 74Hz
+            order: 8           # The filter slope will be 7*6=42dB per octave
+  custom_functions:
+    - # The name under which the results of the function can be used in other functions
+      variable_name: beat
+      prev_values: 3
+      function: |
+        (kick+snare*0.8+mids*0.6)*1.15
+      # Store

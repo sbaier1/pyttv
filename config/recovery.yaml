@@ -1,0 +1,118 @@
+# Dimensions of the final video
+width: 1152
+height: 720
+# Frame rate of the final video: 155bpm = 2.583333 bps x 6 = 15.4999
+frames_per_second: 15.4999
+#simulate_output: H:\latent\recovery.csv
+
+# Config for https://www.youtube.com/watch?v=j_JYA_sHXXA
+# NOTE: this is not 100% reproducible since i swapped models during generation. The final model i switched to about half way was Illuminati Diffusion v1.1.
+
+output_path: H:\latent\out\recovery
+
+# A directory for intermediary results, and misc. other models that are required
+persistence_dir: persistence/
+
+# Torch device to use
+torch_device: cuda
+scenes:
+  - prompt: a detailed (exploded-view drawing:1.7) of a pair of headphones, planar projection, vibrant
+    # up to 01:27
+    duration: 87s
+    interpolation: 0s
+    mechanism: api
+    mechanism_parameters: {}
+  - prompt: a beautiful (exploded-view:1.7) painting of a planet system, extremely detailed, dark, artistic, vast
+    # up to 3:06
+    duration: 99s
+    interpolation: 1s
+    mechanism: api
+    mechanism_parameters: {}
+  - prompt: a detailed (exploded-view drawing:1.5) of a planet system, planar projection, 70s science fiction, (millions of stars), milky way, space telescope, nasa picture of the day, astronomy
+    duration: 37s
+    interpolation: 1s
+    mechanism: api
+    mechanism_parameters: {}
+  - prompt: a detailed (exploded-view drawing:1.74) of a planet system, planar projection, nasa picture of the day, abstract geometric, (visionary art)
+    duration: 34s
+    interpolation: 1s
+    mechanism: api
+    mechanism_parameters: {}
+  - prompt: a beautiful painting of a grassy meadow on an exoplanet at night with a starlit sky, millions of stars, multiple moons in the sky, realistic, hdr
+    duration: 31s
+    interpolation: 5s
+    mechanism: api
+    mechanism_parameters:
+      negative_prompt: nartfixer
+
+mechanisms:
+  - # Name of this parameter set within the config. Can be referenced in scenes
+    name: api
+    # Name of the mechanism to use
+    type: api
+    # Arbitrary parameters the text2video mechanism can take. These are always implementation specific
+    mechanism_parameters:
+      host: http://localhost:7860
+      seed: 3630593569
+      # Statically stay on the original seed
+      subseed_strength: 0
+      # How many turbo steps (lower amount of sampling steps) to run in-between "full sized" frames
+      turbo_steps: 0
+      # How many sampling steps to run for a turbo frame
+      turbo_sampling_steps: 20
+      # Noise schedule (how much noise to add to in-between frames), can be a function or static
+      noise_schedule: 0.04+pads*0.09
+      steps: 30
+      sampler: Euler a
+      # Euler a, LMS,
+      scale: 7
+      # This is denoising strength here, lower = better flow
+      strength_schedule: clamp(0.1,0.9, 0.67-(trigger(func_prev_values['beat'], 0.85)*0.37))-pads*0.6
+      # Type of animation to apply between frames, if any
+      animation: 3D
+      # color match relatively heavily unless strength is low to get new frames (i.e. a drum hit occurs in this one)
+      color_match_weight: clamp(0, 1, 0.1+trigger(func_prev_values['beat'], 0.85))
+      # Parameters for the animation
+      animation_parameters:
+        translation_x: 0
+        translation_y: 0
+        translation_z: 2+bass*8
+        # depth model parameters
+        near_plane: 200
+        far_plane: 10000
+        fov: 40
+        sampling_mode: bicubic
+        padding_mode: border
+
+
+# Other multi-modal context
+additional_context:
+  input_mechanisms:
+    - type: "spectral"
+      mechanism_parameters:
+        file: H:\latent\in\recovery.flac
+        offset: 0
+        filters:
+          # These are very rough estimates without analysing and could probably be improved.
+          - variable_name: kick # The name of the variable we will use in the animation function
+            f_center: 64       # Central frequency the filter will respond to (54Hz)
+            f_width: 6
+            order: 6           # The filter slope will be 7*6=42dB per octave
+          - variable_name: snare
+            f_center: 1143
+            f_width: 400
+            order: 8
+          - variable_name: bass # The name of the variable we will use in the animation function
+            f_center: 72       # Central frequency the filter will respond to (54Hz)
+            f_width: 78        # The filter will pass signals from 34Hz to 74Hz
+            order: 8           # The filter slope will be 7*6=42dB per octave
+          - variable_name: pads
+            f_center: 1143
+            f_width: 2100
+            order: 8
+  custom_functions:
+    - # The name under which the results of the function can be used in other functions
+      variable_name: beat
+      prev_values: 3
+      function: |
+        kick+snare
