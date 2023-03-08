@@ -67,7 +67,7 @@ IMG2IMG = """
   ],
   "seed": {subseed},
   "subseed": {subseed},
-  "subseed_strength": 0.99999,
+  "subseed_strength": {subseed_strength},
   "seed_resize_from_h": -1,
   "seed_resize_from_w": -1,
   "batch_size": 1,
@@ -167,6 +167,7 @@ class ApiMechanism(Mechanism):
                 # Offset the seed
                 "seed": config_copy["seed"],
                 "subseed": config_copy["seed"] + self.index,
+                "subseed_strength": config_copy["subseed_strength"] if "subseed_strength" in config_copy else 0.99999,
             }
         )
         # Threshold for enabling highres fix
