@@ -1,0 +1,33 @@
+# @package _global_
+
+defaults:
+  - root_config
+
+output_path: "output/comfy_test"
+
+mechanisms:
+  - name: "comfy_mech"
+    type: "comfy"
+    host: "127.0.0.1:8188"
+    workflow_path: "config/workflows/simple_i2i.json"
+    workflow_path_t2i: "config/workflows/simple_t2i.json"
+    
+    input_mappings:
+      prompt: "6.text"
+      negative_prompt: "7.text"
+      seed: "3.seed"
+      init_image: "10.image"
+      denoise: "3.denoise"
+    
+    input_mappings_t2i:
+      prompt: "6.text"
+      negative_prompt: "7.text"
+      seed: "3.seed"
+
+scenes:
+  - prompt: "A beautiful landscape"
+    duration: "00:05"
+    mechanism: "comfy_mech"
+    mechanism_parameters:
+      strength_schedule: "0.6" # Used by anim wrapper for interpolation strength
+      denoise: "0.5" # Mapped to KSampler

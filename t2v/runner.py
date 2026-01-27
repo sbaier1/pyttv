@@ -16,6 +16,7 @@ from t2v.input.beats_input import BeatAudioParser
 from t2v.input.midi_input import MidiInput
 from t2v.input.spectral_input import SpectralAudioParser
 from t2v.mechanism.api_mechanism import ApiMechanism
+from t2v.mechanism.comfy_mechanism import ComfyMechanism
 from t2v.mechanism.noop_mechanism import NoopMechanism
 from t2v.util import parse_time
 
@@ -23,7 +24,8 @@ INTERPOLATE_DIRECTORY = "_interpolate"
 
 mechanism_types = {
     NoopMechanism.name(): NoopMechanism,
-    ApiMechanism.name(): ApiMechanism
+    ApiMechanism.name(): ApiMechanism,
+    ComfyMechanism.name(): ComfyMechanism
 }
 
 reactivity_types = {

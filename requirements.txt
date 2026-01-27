@@ -24,3 +24,5 @@ librosa
 mido
 # prompt templating
 jinja2
+# ComfyUI
+websocket-client
